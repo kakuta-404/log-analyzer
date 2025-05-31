@@ -1,0 +1,21 @@
+defaultBaseImage: cgr.dev/chainguard/go:latest
+builds:
+  - id: log-generator
+    main: ./log-generator
+    dir: ./log-generator
+  - id: log-drain
+    main: ./log-drain
+    dir: ./log-drain
+    image: log-drain:latest
+  - id: clickhouse-writer
+    main: ./clickhouse-writer
+    dir: ./clickhouse-writer
+  - id: cassandra-writer
+    main: ./cassandra-writer
+    dir: ./cassandra-writer
+  - id: rest-api
+    main: ./rest-api
+    dir: ./rest-api
+  - id: gui
+    main: ./gui
+    dir: ./gui

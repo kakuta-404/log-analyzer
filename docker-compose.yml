@@ -1,0 +1,100 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+  cassandra:
+    image: cassandra:latest
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+
+  cockroachdb:
+    image: cockroachdb/cockroach:latest
+    ports:
+      - "26257:26257"
+      - "8082:8080"
+    command: start-single-node --insecure
+    volumes:
+      - cockroach_data:/cockroach/cockroach-data
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - clickhouse
+      - cassandra
+      - cockroachdb
+
+  log-generator:
+    image: ko://github.com/matin/log-analyzer/log-generator
+    ports:
+      - "8080:8080"
+
+  log-drain:
+    image: ko://github.com/matin/log-analyzer/log-drain
+    depends_on:
+      - kafka
+
+  clickhouse-writer:
+    image: ko://github.com/matin/log-analyzer/clickhouse-writer
+    depends_on:
+      - kafka
+      - clickhouse
+
+  cassandra-writer:
+    image: ko://github.com/matin/log-analyzer/cassandra-writer
+    depends_on:
+      - kafka
+      - cassandra
+
+  rest-api:
+    image: ko://github.com/matin/log-analyzer/rest-api
+    ports:
+      - "8081:8081"
+    depends_on:
+      - clickhouse
+      - cassandra
+      - cockroachdb
+
+  gui:
+    image: ko://github.com/matin/log-analyzer/gui
+    ports:
+      - "8083:8083"
+    depends_on:
+      - rest-api
+
+volumes:
+  clickhouse_data:
+  cassandra_data:
+  cockroach_data:
+  grafana_data:
