@@ -1,0 +1,26 @@
+{{define "search.gohtml"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search</title>
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <a href="/events">Events</a> |
+            <a href="/search">Search</a> |
+            <a href="/login">Login</a>
+        </nav>
+        <main>
+            <h1>Advanced Search</h1>
+            <form method="POST" action="/search">
+                Key: <input name="key"><br>
+                Value: <input name="value"><br>
+                <button type="submit">Search</button>
+            </form>
+        </main>
+    </div>
+</body>
+</html>
+{{end}}

@@ -1,0 +1,32 @@
+{{define "event_list.gohtml"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Event List</title>
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <a href="/events">Events</a> |
+            <a href="/search">Search</a> |
+            <a href="/login">Login</a>
+        </nav>
+        <main>
+            <h1>Event Summary</h1>
+            <ul>
+                {{range .}}
+                    <li>
+                        <strong>{{.EventName}}</strong><br>
+                        Last Seen: {{.LastSeen}}<br>
+                        Count: {{.Total}}
+                    </li>
+                {{else}}
+                    <p>No events found.</p>
+                {{end}}
+            </ul>
+        </main>
+    </div>
+</body>
+</html>
+{{end}}
