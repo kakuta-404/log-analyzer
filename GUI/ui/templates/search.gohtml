@@ -1,26 +1,135 @@
 {{define "search.gohtml"}}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Search</title>
-</head>
-<body>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Advanced Search</title>
+        <link rel="stylesheet" href="/static/styles.css">
+        <style>
+            body {
+                font-family: 'Segoe UI', sans-serif;
+                background-color: #f5f7fa;
+                margin: 0;
+            }
+
+            .container {
+                max-width: 800px;
+                margin: 40px auto;
+                background: white;
+                border-radius: 12px;
+                padding: 30px;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            }
+
+            h1 {
+                margin-bottom: 20px;
+                color: #333;
+            }
+
+            form {
+                background: #f9f9f9;
+                padding: 20px;
+                border-radius: 10px;
+                border: 1px solid #ddd;
+                margin-bottom: 30px;
+            }
+
+            form label {
+                display: block;
+                margin-top: 12px;
+                font-weight: bold;
+                color: #555;
+            }
+
+            form input {
+                width: 100%;
+                padding: 8px 10px;
+                margin-top: 4px;
+                border: 1px solid #ccc;
+                border-radius: 6px;
+            }
+
+            form button {
+                margin-top: 20px;
+                padding: 10px 20px;
+                background-color: #0077cc;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: bold;
+            }
+
+            form button:hover {
+                background-color: #005fa3;
+            }
+
+            .results h2 {
+                margin-bottom: 12px;
+            }
+
+            .results ul {
+                list-style-type: none;
+                padding: 0;
+            }
+
+            .results li {
+                background: #f1f1f1;
+                border-radius: 8px;
+                padding: 12px 16px;
+                margin-bottom: 12px;
+            }
+
+            .results a {
+                color: #0077cc;
+                font-weight: bold;
+                font-size: 17px;
+                text-decoration: none;
+            }
+
+            .results a:hover {
+                text-decoration: underline;
+            }
+
+            .meta {
+                font-size: 13px;
+                color: #666;
+                margin-top: 6px;
+            }
+        </style>
+    </head>
+    <body>
     <div class="container">
-        <nav>
-            <a href="/events">Events</a> |
-            <a href="/search">Search</a> |
-            <a href="/login">Login</a>
-        </nav>
-        <main>
-            <h1>Advanced Search</h1>
-            <form method="POST" action="/search">
-                Key: <input name="key"><br>
-                Value: <input name="value"><br>
-                <button type="submit">Search</button>
-            </form>
-        </main>
+        <h1>Advanced Search – {{.ProjectName}}</h1>
+
+        <form method="POST" action="/search?project_id={{.ProjectID}}">
+            {{range .SearchKeys}}
+                <label>{{.}}</label>
+                <input name="{{.}}" value="{{index $.Filters .}}">
+            {{end}}
+
+            <button type="submit">Search</button>
+        </form>
+
+        {{if .Groups}}
+            <div class="results">
+                <h2>Matching Events</h2>
+                <ul>
+                    {{range .Groups}}
+                        <li>
+                            <a href="/search/detail?project_id={{$.ProjectID}}&name={{.Name}}&index=0{{range $k, $v := $.Filters}}&{{$k}}={{$v}}{{end}}">
+                                {{.Name}}
+                            </a>
+                            <div class="meta">
+                                Last Seen: {{.LastSeen}}<br>
+                                Count: {{.Total}}
+                            </div>
+                        </li>
+                    {{end}}
+                </ul>
+            </div>
+        {{end}}
     </div>
-</body>
-</html>
+    </body>
+    </html>
 {{end}}

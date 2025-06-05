@@ -5,6 +5,10 @@ import (
 	"net/http"
 )
 
-func Login(c *gin.Context) {
-	c.HTML(http.StatusOK, "auth.gohtml", nil)
+func ShowLoginPage(c *gin.Context) {
+	c.HTML(http.StatusOK, "login.gohtml", nil)
+}
+
+func ShowSignupPage(c *gin.Context) {
+	c.HTML(http.StatusOK, "signup.gohtml", nil)
 }

@@ -28,6 +28,7 @@ nav a {
 
 h1 {
     color: #333;
+    margin-bottom: 20px;
 }
 
 label {
@@ -37,17 +38,19 @@ label {
 
 input {
     width: 100%;
-    padding: 8px;
+    padding: 10px;
     margin-top: 4px;
     border: 1px solid #ccc;
     border-radius: 6px;
+    font-size: 16px;
 }
 
 button {
-    margin-top: 16px;
-    padding: 10px 18px;
+    margin-top: 20px;
+    padding: 12px 20px;
     background-color: #0077cc;
     color: white;
+    font-size: 16px;
     border: none;
     border-radius: 6px;
     cursor: pointer;

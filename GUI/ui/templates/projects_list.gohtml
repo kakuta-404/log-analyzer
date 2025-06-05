@@ -1,0 +1,63 @@
+{{define "projects_list.gohtml"}}
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Your Projects</title>
+        <link rel="stylesheet" href="/static/styles.css">
+        <style>
+            .projects-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 20px;
+            }
+
+            .project-card {
+                background: #ffffff;
+                border: 1px solid #ddd;
+                border-radius: 10px;
+                padding: 20px;
+                text-align: center;
+                transition: box-shadow 0.2s ease, transform 0.2s ease;
+            }
+
+            .project-card:hover {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+                transform: translateY(-2px);
+            }
+
+            .project-card a {
+                text-decoration: none;
+                color: #0077cc;
+                font-weight: bold;
+                font-size: 18px;
+            }
+
+            .project-card a:hover {
+                color: #005fa3;
+            }
+
+            h1 {
+                margin-bottom: 30px;
+                font-size: 26px;
+            }
+        </style>
+    </head>
+    <body>
+    <div class="container">
+        <main>
+            <h1>Your Projects</h1>
+            <div class="projects-grid">
+                {{range .Projects}}
+                    <div class="project-card">
+                        <a href="/events?project_id={{.ID}}">{{.Name}}</a>
+                    </div>
+                {{else}}
+                    <p>No projects found.</p>
+                {{end}}
+            </div>
+        </main>
+    </div>
+    </body>
+    </html>
+{{end}}
