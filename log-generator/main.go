@@ -3,25 +3,19 @@ package main
 import (
 	// "net/http"
 	"database/sql"
-	"fmt"
 	"math/rand"
 	"strconv"
-	"time"
-	"github.com/kakuto-404/log-analyzer/common"
 	"github.com/lib/pq"
+	"github.com/kakuta-404/log-analyzer/common"
+	"log"
+	"net/url"
+	"time"
+	"github.com/gorilla/websocket"
 	// "github.com/gin-gonic/gin"
 )
 
-type Submission struct {
-	ProjectID string            `json:"project_id"`
-	APIKey    string            `json:"api_key"`
-	Name      string            `json:"name"`
-	Timestamp int32             `json:"timestamp"`
-	PayLoad   map[string]string `json:"payload"`
-}
-
-func MakeEvent() Submission {
-	var newEvent Submission
+func MakeSubmission() common.Submission {
+	var newEvent common.Submission
 	newEvent.ProjectID = strconv.Itoa(RandomiseInteger())
 	newEvent.APIKey = "lionel"
 	newEvent.Name = RandomiseString()
@@ -93,24 +87,30 @@ func ConnectToCockroachDB() error {
 }
 func main() {
 
-	count := 0
-	for count < 20 {
-		newEvent := MakeEvent()
-		fmt.Printf("Generated Event: %+v\n", newEvent)
-		count++
+	u := url.URL{
+		Scheme: "ws",
+		Host:   "localhost:8080",
+		Path:   "/ws",
 	}
 
-	// r := gin.Default()
+	log.Printf("Connecting to %s", u.String())
 
-	// r.POST("/logs", func(c *gin.Context) {
-	// 	var payload LogPayload
-	// 	if err := c.BindJSON(&payload); err != nil {
-	// 		c.JSON(400, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-	// 	// TODO: Validate API key and send to Kafka
-	// 	c.JSON(200, gin.H{"status": "received"})
-	// })
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		log.Fatalf("Connection failed: %v", err)
+	}
+	defer conn.Close()
+	log.Println("Connected to log-drain")
 
-	// r.Run(":8080")
+
+
+	for {
+		var sub common.Submission 
+		sub = MakeSubmission()
+		err = conn.WriteJSON(sub)
+		if err != nil {
+		log.Fatalf("Failed to send: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }

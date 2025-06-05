@@ -10,9 +10,9 @@ type Event struct {
 }
 
 type Submission struct {
-	ProjectID string `json:"project_id"`
-	APIKey    string `json:"api_key"`
-	Name      string `json:"name"`
-	Timestamp int32 `json:"timestamp"`
-	PayLoad map[string]string `json:"payload"`
+	ProjectID string            `json:"project_id"`
+	APIKey    string            `json:"api_key"`
+	Name      string            `json:"name"`
+	Timestamp time.Time             `json:"timestamp"`
+	PayLoad   map[string]string `json:"payload"`
 }
