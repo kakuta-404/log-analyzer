@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/matin/log-analyzer/cassandra-writer/internal/consumer"
-	"github.com/matin/log-analyzer/cassandra-writer/internal/writer"
+	"github.com/kakuta-404/log-analyzer/cassandra-writer/internal/consumer"
+	"github.com/kakuta-404/log-analyzer/cassandra-writer/internal/writer"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module github.com/matin/log-analyzer/rest-api
+module github.com/kakuta-404/log-analyzer/rest-api
 
 go 1.21
 

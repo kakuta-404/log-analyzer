@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gocql/gocql"
-	"github.com/matin/log-analyzer/common"
+	"github.com/kakuta-404/log-analyzer/common"
 )
 
 type Config struct {

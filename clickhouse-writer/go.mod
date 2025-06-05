@@ -1,4 +1,4 @@
-module github.com/matin/log-analyzer/clickhouse-writer
+module github.com/kakuta-404/log-analyzer/clickhouse-writer
 
 go 1.21
 

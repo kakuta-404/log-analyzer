@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/matin/log-analyzer/common"
+	"github.com/kakuta-404/log-analyzer/common"
 )
 
 type LogProcessor struct {

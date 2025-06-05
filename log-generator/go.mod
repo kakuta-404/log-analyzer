@@ -1,4 +1,4 @@
-module github.com/matin/log-analyzer/log-generator
+module github.com/kakuta-404/log-analyzer/log-generator
 
 go 1.21
 

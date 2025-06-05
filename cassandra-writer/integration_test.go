@@ -7,9 +7,9 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/gocql/gocql"
-	"github.com/matin/log-analyzer/cassandra-writer/internal/consumer"
-	"github.com/matin/log-analyzer/cassandra-writer/internal/writer"
-	"github.com/matin/log-analyzer/common"
+	"github.com/kakuta-404/log-analyzer/cassandra-writer/internal/consumer"
+	"github.com/kakuta-404/log-analyzer/cassandra-writer/internal/writer"
+	"github.com/kakuta-404/log-analyzer/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
