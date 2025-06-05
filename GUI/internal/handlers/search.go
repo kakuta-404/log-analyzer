@@ -3,44 +3,19 @@ package handlers
 import (
 	"GUI/internal/fake"
 	"GUI/internal/logic"
-	"GUI/internal/models"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
 func ShowSearchPage(c *gin.Context) {
+	user, ok := getAuthenticatedUser(c)
+	if !ok {
+		return
+	}
+
 	projectID := c.Query("project_id")
-	if projectID == "" {
-		c.String(http.StatusBadRequest, "Missing project_id")
-		return
-	}
-
-	// Fake auth
-	userVal, exists := c.Get("user")
-	if !exists {
-		c.String(http.StatusUnauthorized, "unauthorized")
-		return
-	}
-	user := userVal.(*models.User)
-
-	// Check project access
-	var (
-		projectName string
-		searchKeys  []string
-		found       bool
-	)
-
-	for _, p := range user.Projects {
-		if p.ID == projectID {
-			projectName = p.Name
-			searchKeys = p.SearchableKeys // ✅ get schema here
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		c.String(http.StatusForbidden, "no access")
+	projectName, searchKeys, ok := validateProjectAccess(c, user, projectID)
+	if !ok {
 		return
 	}
 

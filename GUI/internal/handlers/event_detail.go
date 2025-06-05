@@ -10,36 +10,20 @@ import (
 )
 
 func ShowEventDetail(c *gin.Context) {
+	user, ok := getAuthenticatedUser(c)
+	if !ok {
+		return
+	}
+
 	projectID := c.Query("project_id")
+	projectName, searchableKeys, ok := validateProjectAccess(c, user, projectID)
+	if !ok {
+		return
+	}
+
 	name := c.Query("name")
 	indexStr := c.DefaultQuery("index", "0")
 	index, _ := strconv.Atoi(indexStr)
-
-	// Auth check
-	userVal, exists := c.Get("user")
-	if !exists {
-		c.String(http.StatusUnauthorized, "unauthorized")
-		return
-	}
-	user := userVal.(*models.User)
-
-	var (
-		projectName    string
-		searchableKeys []string
-		found          bool
-	)
-	for _, p := range user.Projects {
-		if p.ID == projectID {
-			projectName = p.Name
-			searchableKeys = p.SearchableKeys
-			found = true
-			break
-		}
-	}
-	if !found {
-		c.String(http.StatusForbidden, "no access")
-		return
-	}
 
 	// Parse filters
 	filters := map[string]string{}
@@ -79,4 +63,5 @@ func ShowEventDetail(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "event_detail.gohtml", data)
+
 }
