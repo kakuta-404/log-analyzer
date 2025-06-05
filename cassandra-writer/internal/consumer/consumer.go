@@ -6,8 +6,8 @@ import (
 	"log"
 
 	"github.com/Shopify/sarama"
-	"github.com/matin/log-analyzer/cassandra-writer/internal/writer"
-	"github.com/matin/log-analyzer/common"
+	"github.com/kakuta-404/log-analyzer/cassandra-writer/internal/writer"
+	"github.com/kakuta-404/log-analyzer/common"
 )
 
 type Config struct {

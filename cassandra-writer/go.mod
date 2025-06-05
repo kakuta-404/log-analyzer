@@ -1,4 +1,4 @@
-module github.com/matin/log-analyzer/cassandra-writer
+module github.com/kakuta-404/log-analyzer/cassandra-writer
 
 go 1.23.0
 
@@ -7,7 +7,7 @@ toolchain go1.24.0
 require (
 	github.com/Shopify/sarama v1.38.1
 	github.com/gocql/gocql v1.6.0
-	github.com/matin/log-analyzer/common v0.0.0
+	github.com/kakuta-404/log-analyzer/common v0.0.0
 )
 
 require (
@@ -83,4 +83,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/matin/log-analyzer/common => ../common
+replace github.com/kakuta-404/log-analyzer/common => ../common
