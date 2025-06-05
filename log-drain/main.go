@@ -24,3 +24,7 @@ func (p *LogProcessor) processLog(data []byte) error {
 	// TODO: Process event and route to appropriate writer
 	return nil
 }
+
+func ConnectToLogGenerator() {
+
+}
