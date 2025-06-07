@@ -3,10 +3,10 @@ package common
 import "time"
 
 type Event struct {
-	Name           string
-	ProjectID      string
-	EventTimestamp time.Time
-	Log            map[string]string
+	Name           string            `json:"name"`
+	ProjectID      string            `json:"project_id"`
+	EventTimestamp time.Time         `json:"event_timestamp"`
+	Log            map[string]string `json:"log"`
 }
 
 type Submission struct {

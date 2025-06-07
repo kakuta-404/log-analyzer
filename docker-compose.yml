@@ -39,6 +39,10 @@ services:
     image: bitnami/cassandra:5.0.4
     ports:
       - "9042:9042"
+    environment:
+      CASSANDRA_PASSWORD_SEEDER: "no"
+      CASSANDRA_AUTHENTICATOR: "AllowAllAuthenticator"
+      CASSANDRA_AUTHORIZER: "AllowAllAuthorizer"
     volumes:
       - cassandra_data:/var/lib/cassandra
 

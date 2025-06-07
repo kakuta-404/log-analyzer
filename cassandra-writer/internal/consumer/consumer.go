@@ -3,7 +3,8 @@ package consumer
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"fmt"
+	"log/slog"
 
 	"github.com/Shopify/sarama"
 	"github.com/kakuta-404/log-analyzer/cassandra-writer/internal/writer"
@@ -23,51 +24,77 @@ type KafkaConsumer struct {
 }
 
 func NewKafkaConsumer(cfg Config, writer *writer.CassandraWriter) (*KafkaConsumer, error) {
+	slog.Debug("configuring kafka consumer",
+		"brokers", cfg.Brokers,
+		"topic", cfg.Topic,
+		"group", cfg.GroupID)
+
 	config := sarama.NewConfig()
 	config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRoundRobin
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	group, err := sarama.NewConsumerGroup(cfg.Brokers, cfg.GroupID, config)
+	consumer, err := sarama.NewConsumerGroup(cfg.Brokers, cfg.GroupID, config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create consumer group: %v", err)
 	}
 
+	slog.Info("successfully created kafka consumer group")
+
 	return &KafkaConsumer{
-		consumer: group,
+		consumer: consumer,
 		writer:   writer,
 		topic:    cfg.Topic,
 	}, nil
 }
 
-func (k *KafkaConsumer) Start(ctx context.Context) error {
+func (c *KafkaConsumer) Start(ctx context.Context) error {
+	slog.Info("starting to consume from topic", "topic", c.topic)
+
 	for {
-		if err := k.consumer.Consume(ctx, []string{k.topic}, k); err != nil {
-			return err
-		}
-
-		if ctx.Err() != nil {
-			return ctx.Err()
+		select {
+		case <-ctx.Done():
+			slog.Info("context cancelled, stopping consumer")
+			return c.consumer.Close()
+		default:
+			err := c.consumer.Consume(ctx, []string{c.topic}, c)
+			if err != nil {
+				return fmt.Errorf("error from consumer: %v", err)
+			}
 		}
 	}
 }
 
-func (k *KafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	for msg := range claim.Messages() {
-		var event common.Event
-		if err := json.Unmarshal(msg.Value, &event); err != nil {
-			log.Printf("Error unmarshaling message: %v", err)
-			continue
-		}
+func (c *KafkaConsumer) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
+func (c *KafkaConsumer) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
 
-		if err := k.writer.WriteEvent(&event); err != nil {
-			log.Printf("Error writing event: %v", err)
-			continue
-		}
+func (c *KafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	for {
+		select {
+		case message := <-claim.Messages():
+			if message == nil {
+				return nil
+			}
 
-		session.MarkMessage(msg, "")
+			var event common.Event
+			if err := json.Unmarshal(message.Value, &event); err != nil {
+				slog.Error("error unmarshaling message",
+					"error", err,
+					"value", string(message.Value))
+				session.MarkMessage(message, "")
+				continue
+			}
+
+			if err := c.writer.WriteEvent(&event); err != nil {
+				slog.Error("error writing event",
+					"error", err,
+					"event", event)
+				continue
+			}
+
+			session.MarkMessage(message, "")
+
+		case <-session.Context().Done():
+			return nil
+		}
 	}
-	return nil
 }
-
-func (k *KafkaConsumer) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
-func (k *KafkaConsumer) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
