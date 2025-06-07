@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"GUI/internal/models"
 	"github.com/gin-gonic/gin"
+	"github.com/kakuta-404/log-analyzer/common"
 	"net/http"
 )
 
@@ -13,7 +13,7 @@ func ShowProjectsPage(c *gin.Context) {
 		return
 	}
 
-	usr := user.(*models.User)
+	usr := user.(*common.User)
 
 	c.HTML(http.StatusOK, "projects_list.gohtml", gin.H{
 		"Projects": usr.Projects,

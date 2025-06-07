@@ -1,18 +1,5 @@
 package models
 
-type User struct {
-	ID       string
-	Username string
-	Projects []Project
-}
-
-type Project struct {
-	ID             string
-	Name           string
-	SearchableKeys []string
-	OtherKeys      []string
-}
-
 type Event struct {
 	ID             string            // unique ID (e.g., UUID)
 	Name           string            // event name

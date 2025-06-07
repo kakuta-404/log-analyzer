@@ -1,23 +1,23 @@
 package handlers
 
 import (
-	"GUI/internal/models"
 	"github.com/gin-gonic/gin"
+	"github.com/kakuta-404/log-analyzer/common"
 	"net/http"
 )
 
 // getAuthenticatedUser retrieves authenticated user from context
-func getAuthenticatedUser(c *gin.Context) (*models.User, bool) {
+func getAuthenticatedUser(c *gin.Context) (*common.User, bool) {
 	userVal, exists := c.Get("user")
 	if !exists {
 		c.String(http.StatusUnauthorized, "unauthorized")
 		return nil, false
 	}
-	return userVal.(*models.User), true
+	return userVal.(*common.User), true
 }
 
 // validateProjectAccess checks if user has access to project and returns project details
-func validateProjectAccess(c *gin.Context, user *models.User, projectID string) (projectName string, searchableKeys []string, ok bool) {
+func validateProjectAccess(c *gin.Context, user *common.User, projectID string) (projectName string, searchableKeys []string, ok bool) {
 	if projectID == "" {
 		c.String(http.StatusBadRequest, "Missing project_id")
 		return "", nil, false
