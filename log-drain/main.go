@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
+	"github.com/kakuta-404/log-analyzer/common"
 )
 
 type LogProcessor struct {
@@ -14,6 +16,22 @@ func main() {
 }
 
 func (p *LogProcessor) processLog(data []byte) error {
-	// TODO: Process log and route to appropriate writer
+	var event common.Event
+	if err := json.Unmarshal(data, &event); err != nil {
+		return err
+	}
+	// TODO: Process event and route to appropriate writer
 	return nil
+}
+
+func ConnectToLogGenerator() {
+
+}
+
+func Authentication() {
+
+}
+
+func SendToKafka() {
+
 }
