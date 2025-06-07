@@ -4,7 +4,6 @@ go 1.21
 
 require (
 	github.com/gin-gonic/gin v1.9.1
-	github.com/gorilla/websocket v1.5.3
 	github.com/kakuta-404/log-analyzer/common v0.0.0-20250605060922-23999e3c5ac9
 	github.com/lib/pq v1.10.9
 )
