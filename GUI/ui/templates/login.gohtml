@@ -1,0 +1,30 @@
+{{define "login.gohtml"}}
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Login</title>
+        <link rel="stylesheet" href="/static/styles.css">
+    </head>
+    <body>
+    <div class="container">
+        <nav>
+            <a href="/">Home</a> |
+            <a href="/signup">Sign Up</a>
+        </nav>
+        <main>
+            <h1>Login</h1>
+            <form method="POST" action="/login">
+                <label for="username">Username</label>
+                <input id="username" name="username" type="text" required>
+
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" required>
+
+                <button type="submit">Login</button>
+            </form>
+        </main>
+    </div>
+    </body>
+    </html>
+{{end}}

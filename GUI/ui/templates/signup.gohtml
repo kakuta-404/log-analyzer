@@ -1,0 +1,33 @@
+{{define "signup.gohtml"}}
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Sign Up</title>
+        <link rel="stylesheet" href="/static/styles.css">
+    </head>
+    <body>
+    <div class="container">
+        <nav>
+            <a href="/">Home</a> |
+            <a href="/logout">Logout</a>
+        </nav>
+        <main>
+            <h1>Create Account</h1>
+            <form method="POST" action="/signup">
+                <label for="username">Username</label>
+                <input id="username" name="username" type="text" required>
+
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" required>
+
+                <label for="confirm">Confirm Password</label>
+                <input id="confirm" name="confirm" type="password" required>
+
+                <button type="submit">Sign Up</button>
+            </form>
+        </main>
+    </div>
+    </body>
+    </html>
+{{end}}

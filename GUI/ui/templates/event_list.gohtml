@@ -1,0 +1,91 @@
+{{define "event_list.gohtml"}}
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Event Summary</title>
+        <link rel="stylesheet" href="/static/styles.css">
+        <style>
+            .events {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
+            }
+
+            .event-card {
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 10px;
+                padding: 20px;
+                transition: box-shadow 0.2s ease;
+            }
+
+            .event-card:hover {
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            }
+
+            .event-name {
+                font-weight: bold;
+                font-size: 18px;
+                color: #0077cc;
+                text-decoration: none;
+            }
+
+            .pagination {
+                margin-top: 30px;
+                text-align: center;
+            }
+
+            .pagination a {
+                margin: 0 10px;
+                color: #0077cc;
+                text-decoration: none;
+                font-weight: bold;
+            }
+
+            .pagination a:hover {
+                text-decoration: underline;
+            }
+
+            h1 {
+                margin-bottom: 30px;
+            }
+        </style>
+    </head>
+    <body>
+    <div class="container">
+        <nav>
+            <a href="/projects">Projects</a> |
+            <a href="/search?project_id={{.ProjectID}}">Advanced Search</a> |
+            <a href="/logout">Logout</a>
+        </nav>
+
+        <main>
+            <h1>Event Summary for {{.ProjectName}}</h1>
+
+            <div class="events">
+                {{range .Events}}
+                    <div class="event-card">
+                        <a class="event-name" href="/search/detail?project_id={{$.ProjectID}}&name={{.Name}}&index=0">{{.Name}}</a><br>
+                        <small>Last Seen: {{.LastSeen}}</small><br>
+                        <small>Total: {{.Total}}</small>
+                    </div>
+                {{else}}
+                    <p>No events found.</p>
+                {{end}}
+            </div>
+
+            <div class="pagination">
+                {{if gt .Page 1}}
+                    <a href="/events?project_id={{.ProjectID}}&page={{dec .Page}}">← Prev</a>
+                {{end}}
+
+                {{if .HasNext}}
+                    <a href="/events?project_id={{.ProjectID}}&page={{inc .Page}}">Next →</a>
+                {{end}}
+            </div>
+        </main>
+    </div>
+    </body>
+    </html>
+{{end}}
