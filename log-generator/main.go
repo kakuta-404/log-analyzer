@@ -19,7 +19,7 @@ func MakeSubmission() common.Submission {
 	newEvent.ProjectID = strconv.Itoa(RandomiseInteger())
 	newEvent.APIKey = "lionel"
 	newEvent.Name = RandomiseString()
-	newEvent.Timestamp = int32(time.Now().UnixNano())
+	newEvent.Timestamp = time.Now()
 	newEvent.PayLoad = makePayload()
 	return newEvent
 }
