@@ -28,8 +28,7 @@ func (p *LogProcessor) processLog(data []byte) error {
 }
 
 func ConnectToLogGenerator() {
-	
-
+	// todo add function handler 
 }
 
 var PorjectsInfo map[string]string
