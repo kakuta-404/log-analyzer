@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -18,6 +19,16 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+func createIndependentSession(host string, port string, keyspace string) (*gocql.Session, error) {
+	cluster := gocql.NewCluster(host + ":" + port)
+	cluster.Keyspace = keyspace
+	cluster.Consistency = gocql.Quorum
+	cluster.Timeout = 5 * time.Second
+	cluster.RetryPolicy = &gocql.SimpleRetryPolicy{NumRetries: 3}
+
+	return cluster.CreateSession()
+}
+
 func TestIntegrationCassandraWriter(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -27,11 +38,16 @@ func TestIntegrationCassandraWriter(t *testing.T) {
 
 	// Start Cassandra container
 	cassandraContainer, err := cassandra.RunContainer(ctx,
-		testcontainers.WithImage("cassandra:latest"),
+		testcontainers.WithImage("bitnami/cassandra:5.0.4"),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("Created default superuser role").
 				WithStartupTimeout(60*time.Second),
 		),
+		testcontainers.WithEnv(map[string]string{
+			"CASSANDRA_PASSWORD_SEEDER": "no",
+			"CASSANDRA_AUTHENTICATOR":   "AllowAllAuthenticator",
+			"CASSANDRA_AUTHORIZER":      "AllowAllAuthorizer",
+		}),
 	)
 	require.NoError(t, err)
 	defer func() {
@@ -47,7 +63,10 @@ func TestIntegrationCassandraWriter(t *testing.T) {
 
 	// Start Kafka container
 	kafkaContainer, err := tcKafka.RunContainer(ctx,
-		testcontainers.WithImage("confluentinc/cp-kafka:latest"),
+		testcontainers.WithImage("confluentinc/cp-kafka:7.3.2"),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("Kafka Server started").WithStartupTimeout(60*time.Second),
+		),
 	)
 	require.NoError(t, err)
 	defer func() {
@@ -62,11 +81,18 @@ func TestIntegrationCassandraWriter(t *testing.T) {
 	require.NoError(t, err)
 
 	// Initialize Cassandra writer
-	cw, err := writer.NewCassandraWriter(writer.Config{
-		Hosts:    []string{cassandraHost + ":" + cassandraPort.Port()},
-		Keyspace: "logs_test",
-	})
-	require.NoError(t, err)
+	var cw *writer.CassandraWriter
+	for i := 0; i < 5; i++ {
+		cw, err = writer.NewCassandraWriter(writer.Config{
+			Hosts:    []string{cassandraHost + ":" + cassandraPort.Port()},
+			Keyspace: "logs_test",
+		})
+		if err == nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	require.NoError(t, err, "Failed to connect to Cassandra after retries")
 
 	// Initialize Kafka consumer
 	kc, err := consumer.NewKafkaConsumer(consumer.Config{
@@ -93,45 +119,79 @@ func TestIntegrationCassandraWriter(t *testing.T) {
 	require.NoError(t, err)
 	defer producer.Close()
 
+	// Wait for Kafka to be ready
+	time.Sleep(10 * time.Second)
+
 	// Create test event
 	testEvent := &common.Event{
 		Name:           "test_event",
 		ProjectID:      "test_project",
-		EventTimestamp: time.Now(),
+		EventTimestamp: time.Now().UTC(),
 		Log: map[string]string{
 			"key1": "value1",
 			"key2": "value2",
 		},
 	}
 
+	// Serialize event to JSON
+	eventJSON, err := json.Marshal(testEvent)
+	require.NoError(t, err)
+
 	// Produce test event to Kafka
 	msg := &sarama.ProducerMessage{
 		Topic: "logs_test",
-		Value: sarama.StringEncoder(testEvent.Name),
+		Value: sarama.StringEncoder(eventJSON),
 	}
 	_, _, err = producer.SendMessage(msg)
 	require.NoError(t, err)
 
-	// Wait for message to be processed
-	time.Sleep(5 * time.Second)
-
-	// Verify data in Cassandra
-	cluster := gocql.NewCluster(cassandraHost + ":" + cassandraPort.Port())
-	cluster.Keyspace = "logs_test"
-	cluster.Consistency = gocql.Quorum
-	session, err := cluster.CreateSession()
-	require.NoError(t, err)
-	defer session.Close()
-
+	// Wait for message to be processed with retries
 	var count int
-	err = session.Query("SELECT COUNT(*) FROM events").Scan(&count)
-	require.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		time.Sleep(1 * time.Second)
+
+		session, err := createIndependentSession(cassandraHost, cassandraPort.Port(), "logs_test")
+		if err != nil {
+			t.Logf("Error creating session: %v", err)
+			continue
+		}
+		defer session.Close()
+
+		err = session.Query("SELECT COUNT(*) FROM events").Scan(&count)
+		if err != nil {
+			t.Logf("Error querying count: %v", err)
+			continue
+		}
+
+		if count == 1 {
+			break
+		}
+	}
 	assert.Equal(t, 1, count, "Expected one record in Cassandra")
 
+	// Verify data with retries
 	var storedEvent common.Event
-	err = session.Query("SELECT name, project_id, timestamp, log_data FROM events LIMIT 1").
-		Scan(&storedEvent.Name, &storedEvent.ProjectID, &storedEvent.EventTimestamp, &storedEvent.Log)
-	require.NoError(t, err)
+	var found bool
+	for i := 0; i < 5; i++ {
+		session, err := createIndependentSession(cassandraHost, cassandraPort.Port(), "logs_test")
+		if err != nil {
+			t.Logf("Error creating session: %v", err)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		defer session.Close()
+
+		err = session.Query("SELECT name, project_id, timestamp, log_data FROM events LIMIT 1").
+			Scan(&storedEvent.Name, &storedEvent.ProjectID, &storedEvent.EventTimestamp, &storedEvent.Log)
+		if err == nil {
+			found = true
+			break
+		}
+		t.Logf("Error querying event: %v", err)
+		time.Sleep(1 * time.Second)
+	}
+
+	require.True(t, found, "Failed to find stored event")
 
 	assert.Equal(t, testEvent.Name, storedEvent.Name)
 	assert.Equal(t, testEvent.ProjectID, storedEvent.ProjectID)

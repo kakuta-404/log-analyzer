@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,18 +11,32 @@ import (
 	"github.com/kakuta-404/log-analyzer/cassandra-writer/internal/writer"
 )
 
-func main() {
-	log.Println("Starting Cassandra Writer Service...")
+func init() {
+	opts := &slog.HandlerOptions{
+		Level:     slog.LevelDebug,
+		AddSource: true,
+	}
+	handler := slog.NewJSONHandler(os.Stdout, opts)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+}
 
+func main() {
+	slog.Info("starting cassandra writer service")
+
+	slog.Info("initializing cassandra writer...")
 	// Initialize Cassandra writer
 	cw, err := writer.NewCassandraWriter(writer.Config{
 		Hosts:    []string{"cassandra:9042"},
 		Keyspace: "logs",
 	})
 	if err != nil {
-		log.Fatalf("Failed to create Cassandra writer: %v", err)
+		slog.Error("failed to create cassandra writer", "error", err)
+		os.Exit(1)
 	}
+	slog.Info("successfully connected to cassandra")
 
+	slog.Info("initializing kafka consumer...")
 	// Initialize Kafka consumer
 	kc, err := consumer.NewKafkaConsumer(consumer.Config{
 		Brokers: []string{"kafka:9092"},
@@ -30,8 +44,10 @@ func main() {
 		GroupID: "cassandra-writer",
 	}, cw)
 	if err != nil {
-		log.Fatalf("Failed to create Kafka consumer: %v", err)
+		slog.Error("failed to create kafka consumer", "error", err)
+		os.Exit(1)
 	}
+	slog.Info("successfully connected to kafka")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -41,12 +57,15 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		<-sigChan
-		log.Println("Shutting down...")
+		sig := <-sigChan
+		slog.Info("received shutdown signal", "signal", sig)
 		cancel()
 	}()
 
+	slog.Info("starting to consume messages...")
 	if err := kc.Start(ctx); err != nil {
-		log.Fatalf("Error running consumer: %v", err)
+		slog.Error("error running consumer", "error", err)
+		os.Exit(1)
 	}
+	slog.Info("cassandra writer service shutdown complete")
 }

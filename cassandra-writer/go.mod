@@ -1,8 +1,6 @@
 module github.com/kakuta-404/log-analyzer/cassandra-writer
 
-go 1.23.0
-
-toolchain go1.24.0
+go 1.24.0
 
 require (
 	github.com/Shopify/sarama v1.38.1
@@ -12,6 +10,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.37.0
 	github.com/testcontainers/testcontainers-go/modules/cassandra v0.37.0
 	github.com/testcontainers/testcontainers-go/modules/kafka v0.37.0
+	golang.org/x/exp v0.0.0-20250531010427-b6e5de432a8b
 )
 
 require (
@@ -78,9 +77,8 @@ require (
 	go.opentelemetry.io/otel/sdk v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/mod v0.21.0 // indirect
+	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	google.golang.org/grpc v1.70.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
