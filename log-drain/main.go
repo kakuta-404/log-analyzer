@@ -1,35 +1,37 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
+	"net/http"
 	"github.com/kakuta-404/log-analyzer/common"
 	_ "github.com/lib/pq"
 	"database/sql"
+	"github.com/gin-gonic/gin"
+
 
 )
 
-type LogProcessor struct {
-	// TODO: Add Kafka consumer configuration
-}
+func SendToKafka(sub *common.Submission) {
 
+}
 func main() {
-	log.Println("Starting Log Drain Service...")
-	// TODO: Initialize Kafka consumer and start processing
+	r := gin.Default()
+	
+    r.POST("/logs", func(c *gin.Context) {
+        var sub common.Submission
+
+        if err := c.ShouldBindJSON(&sub); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
+
+		SendToKafka(&sub)
+
+    })
+
+    r.Run(":8080")
 }
 
-func (p *LogProcessor) processLog(data []byte) error {
-	var event common.Event
-	if err := json.Unmarshal(data, &event); err != nil {
-		return err
-	}
-	// TODO: Process event and route to appropriate writer
-	return nil
-}
 
-func ConnectToLogGenerator() {
-	// todo add function handler 
-}
 
 var PorjectsInfo map[string]string
 var database sql.DB
@@ -79,8 +81,4 @@ func Authentication(key string, api_key string) (bool, error) {
 		return false,nil
 	}
 	
-}
-
-func SendToKafka() {
-
 }
