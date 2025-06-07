@@ -1,17 +1,16 @@
 package main
 
 import (
-	// "net/http"
+	"net/http"
 	"database/sql"
 	"math/rand"
 	"strconv"
 	"github.com/lib/pq"
 	"github.com/kakuta-404/log-analyzer/common"
-	"log"
-	"net/url"
 	"time"
-	"github.com/gorilla/websocket"
-	// "github.com/gin-gonic/gin"
+	"encoding/json"
+	"bytes"
+	"github.com/gin-gonic/gin"
 )
 
 func MakeSubmission() common.Submission {
@@ -85,32 +84,35 @@ func ConnectToCockroachDB() error {
 	return nil
 
 }
+
+func sendLogs() {
+	
+    sub := MakeSubmission()
+    body, _ := json.Marshal(sub)
+
+    resp, err := http.Post("http://log-drain:8080/logs", "application/json", bytes.NewBuffer(body))
+    if err != nil {
+        return
+    }
+    resp.Body.Close()
+
+
+}
 func main() {
+    go func() {
+        ticker := time.NewTicker(5 * time.Second)
+        defer ticker.Stop()
+        for range ticker.C {
+            sendLogs()
+        }
+    }()
 
-	u := url.URL{
-		Scheme: "ws",
-		Host:   "localhost:8080",
-		Path:   "/ws",
-	}
+    r := gin.Default()
 
-	log.Printf("Connecting to %s", u.String())
-
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		log.Fatalf("Connection failed: %v", err)
-	}
-	defer conn.Close()
-	log.Println("Connected to log-drain")
-
+    r.POST("/send-now", func(c *gin.Context) {
+        sendLogs()
+        c.JSON(http.StatusOK, gin.H{"status": "log sent manually"})
+    })
 
 
-	for {
-		var sub common.Submission 
-		sub = MakeSubmission()
-		err = conn.WriteJSON(sub)
-		if err != nil {
-		log.Fatalf("Failed to send: %v", err)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
 }
