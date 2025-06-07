@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"log"
-
 	"github.com/kakuta-404/log-analyzer/common"
 )
 
@@ -23,4 +22,16 @@ func (p *LogProcessor) processLog(data []byte) error {
 	}
 	// TODO: Process event and route to appropriate writer
 	return nil
+}
+
+func ConnectToLogGenerator() {
+
+}
+
+func Authentication() {
+
+}
+
+func SendToKafka() {
+
 }
