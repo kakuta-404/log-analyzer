@@ -1,12 +1,11 @@
 package handlers
 
 import (
-	"GUI/internal/fake"
-	"GUI/internal/logic"
-	"GUI/internal/models"
+	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/kakuta-404/log-analyzer/common"
 	"net/http"
-	"strconv"
 )
 
 func ShowEventDetail(c *gin.Context) {
@@ -16,52 +15,46 @@ func ShowEventDetail(c *gin.Context) {
 	}
 
 	projectID := c.Query("project_id")
+	name := c.Query("name")
+	indexStr := c.DefaultQuery("index", "0")
+
 	projectName, searchableKeys, ok := validateProjectAccess(c, user, projectID)
 	if !ok {
 		return
 	}
 
-	name := c.Query("name")
-	indexStr := c.DefaultQuery("index", "0")
-	index, _ := strconv.Atoi(indexStr)
-
-	// Parse filters
+	// Filters
 	filters := map[string]string{}
+	q := fmt.Sprintf("%s/projects/%s/events/%s/detail?index=%s", common.RESTAPIBaseURL, projectID, name, indexStr)
 	for _, key := range searchableKeys {
 		if val := c.Query(key); val != "" {
 			filters[key] = val
+			q += fmt.Sprintf("&%s=%s", key, val)
 		}
 	}
 
-	// Get matching events
-	all := fake.ProjectEvents[projectID]
-	filtered := logic.FilterEvents(all, filters)
-
-	// Only keep matching name
-	var matching []models.Event
-	for _, e := range filtered {
-		if e.Name == name {
-			matching = append(matching, e)
-		}
+	// Request
+	resp, err := http.Get(q)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		c.String(http.StatusBadGateway, "Failed to fetch event detail")
+		return
 	}
+	defer resp.Body.Close()
 
-	if index < 0 || index >= len(matching) {
-		c.String(http.StatusNotFound, "event not found")
+	var result common.EventDetailResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.String(http.StatusInternalServerError, "Invalid response")
 		return
 	}
 
-	event := matching[index]
-
-	data := map[string]any{
-		"ProjectID":   projectID,
+	// Render
+	c.HTML(http.StatusOK, "event_detail.gohtml", map[string]any{
+		"ProjectID":   result.ProjectID,
 		"ProjectName": projectName,
-		"Event":       event,
-		"Filters":     filters,
-		"Index":       index,
-		"HasPrev":     index > 0,
-		"HasNext":     index+1 < len(matching),
-	}
-
-	c.HTML(http.StatusOK, "event_detail.gohtml", data)
-
+		"Event":       result.GuiEvent,
+		"Filters":     result.Filters,
+		"Index":       result.Index,
+		"HasPrev":     result.HasPrev,
+		"HasNext":     result.HasNext,
+	})
 }

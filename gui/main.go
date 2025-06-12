@@ -1,7 +1,6 @@
 package main
 
 import (
-	"GUI/internal/fake"
 	"GUI/internal/handlers"
 	"GUI/internal/middleware"
 	"GUI/ui/templates"
@@ -12,7 +11,7 @@ import (
 
 func main() {
 	//TODO replace with real data
-	fake.LoadFakeDataOnce()
+	//fake.LoadFakeDataOnce()
 
 	// Set Gin to production mode
 	gin.SetMode(gin.ReleaseMode)

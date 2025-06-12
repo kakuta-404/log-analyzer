@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"GUI/internal/fake"
-	"GUI/internal/logic"
+	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/kakuta-404/log-analyzer/common"
 	"net/http"
 )
 
@@ -29,16 +30,33 @@ func ShowSearchPage(c *gin.Context) {
 		}
 	}
 
-	// Get and filter events
-	all := fake.ProjectEvents[projectID]
-	filtered := logic.FilterEvents(all, filters)
-	grouped := logic.GroupEventsByName(filtered)
+	// Build REST API request
+	url := fmt.Sprintf("%s/projects/%s/search", common.RESTAPIBaseURL, projectID)
+
+	// Attach filters as query parameters
+	q := url + "?"
+	for k, v := range filters {
+		q += fmt.Sprintf("%s=%s&", k, v)
+	}
+
+	resp, err := http.Get(q)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		c.String(http.StatusBadGateway, "Failed to fetch filtered events")
+		return
+	}
+	defer resp.Body.Close()
+
+	var result common.GroupedEventsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.String(http.StatusInternalServerError, "Invalid response from server")
+		return
+	}
 
 	c.HTML(http.StatusOK, "search.gohtml", gin.H{
 		"ProjectID":   projectID,
 		"ProjectName": projectName,
 		"Filters":     filters,
 		"SearchKeys":  searchKeys,
-		"Groups":      grouped,
+		"Groups":      result.Groups,
 	})
 }
