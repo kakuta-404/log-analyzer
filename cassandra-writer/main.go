@@ -27,8 +27,7 @@ func main() {
 	slog.Info("initializing cassandra writer...")
 	// Initialize Cassandra writer
 	cw, err := writer.NewCassandraWriter(writer.Config{
-		Hosts:    []string{"cassandra:9042"},
-		Keyspace: "logs",
+		Host: "cassandra:9042",
 	})
 	if err != nil {
 		slog.Error("failed to create cassandra writer", "error", err)
