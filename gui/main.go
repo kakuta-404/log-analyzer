@@ -1,17 +1,17 @@
 package main
 
 import (
-	"GUI/internal/fake"
 	"GUI/internal/handlers"
 	"GUI/internal/middleware"
 	"GUI/ui/templates"
 	"github.com/gin-gonic/gin"
+	"github.com/kakuta-404/log-analyzer/common"
 	"log"
 )
 
 func main() {
 	//TODO replace with real data
-	fake.LoadFakeDataOnce()
+	//fake.LoadFakeDataOnce()
 
 	// Set Gin to production mode
 	gin.SetMode(gin.ReleaseMode)
@@ -47,5 +47,5 @@ func main() {
 	router.GET("/search/detail", handlers.ShowEventDetail)
 
 	// Use port 8082
-	log.Fatal(router.Run(":8082"))
+	log.Fatal(router.Run(common.GUIBaseURL))
 }

@@ -1,10 +1,10 @@
 package fake
 
 import (
-	"GUI/internal/models"
+	"github.com/kakuta-404/log-analyzer/common"
 )
 
-var ProjectEvents = map[string][]models.Event{}
+var ProjectEvents = map[string][]common.GuiEvent{}
 
 func LoadFakeDataOnce() {
 	if len(ProjectEvents) == 0 {

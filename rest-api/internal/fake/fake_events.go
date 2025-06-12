@@ -1,13 +1,13 @@
 package fake
 
 import (
-	"GUI/internal/models"
+	"github.com/kakuta-404/log-analyzer/common"
 	"strconv"
 	"time"
 )
 
-func GenerateFakeEvents(projectID string, count int) []models.Event {
-	var events []models.Event
+func GenerateFakeEvents(projectID string, count int) []common.GuiEvent {
+	var events []common.GuiEvent
 
 	names := []string{
 		"login", "signup", "click", "download", "upload", "logout",
@@ -24,7 +24,7 @@ func GenerateFakeEvents(projectID string, count int) []models.Event {
 		browser := browsers[i%len(browsers)]
 		userID := strconv.Itoa((i % 7) + 1000) // e.g., 1000–1006
 
-		events = append(events, models.Event{
+		events = append(events, common.GuiEvent{
 			ID:         "e" + strconv.Itoa(i),
 			Name:       name,
 			Timestamp:  time.Now().Add(-time.Duration(i) * time.Minute).Format("2006-01-02 15:04"),

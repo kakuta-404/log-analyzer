@@ -5,6 +5,7 @@ go 1.24
 require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/kakuta-404/log-analyzer/common v0.0.0-00010101000000-000000000000
+	github.com/kakuta-404/log-analyzer/rest-api v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -35,4 +36,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/kakuta-404/log-analyzer/common => ../common
+replace (
+	github.com/kakuta-404/log-analyzer/common => ../common
+	github.com/kakuta-404/log-analyzer/rest-api => ../rest-api
+)

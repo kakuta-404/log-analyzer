@@ -1,12 +1,12 @@
 package logic
 
 import (
-	"GUI/internal/models"
+	"github.com/kakuta-404/log-analyzer/common"
 )
 
-func GroupEventsByName(events []models.Event) []models.EventGroupSummary {
+func GroupEventsByName(events []common.GuiEvent) []common.EventGroupSummary {
 	//TODO replace with fast db group by method
-	grouped := map[string]models.EventGroupSummary{}
+	grouped := map[string]common.EventGroupSummary{}
 
 	for _, e := range events {
 		g := grouped[e.Name]
@@ -19,7 +19,7 @@ func GroupEventsByName(events []models.Event) []models.EventGroupSummary {
 		grouped[e.Name] = g
 	}
 
-	var result []models.EventGroupSummary
+	var result []common.EventGroupSummary
 	for _, v := range grouped {
 		result = append(result, v)
 	}

@@ -1,14 +1,15 @@
 package handlers
 
 import (
-	"GUI/internal/fake"
-	"GUI/internal/logic"
+	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/kakuta-404/log-analyzer/common"
 	"net/http"
 	"strconv"
 )
 
-const GroupsPerPage = 10
+var result common.GroupedEventsResponse
 
 func ShowEventList(c *gin.Context) {
 	user, ok := getAuthenticatedUser(c)
@@ -28,26 +29,30 @@ func ShowEventList(c *gin.Context) {
 		page = 1
 	}
 
-	// TODO: get real events
-	events := fake.ProjectEvents[projectID]
-	grouped := logic.GroupEventsByName(events)
-
-	// Pagination
-	start := (page - 1) * GroupsPerPage
-	end := start + GroupsPerPage
-	if start > len(grouped) {
-		start = len(grouped)
+	// ============================
+	// Call REST API for events
+	// ============================
+	url := fmt.Sprintf("%s/projects/%s/events?page=%d", common.RESTAPIBaseURL, projectID, page)
+	resp, err := http.Get(url)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		c.String(http.StatusBadGateway, "Failed to fetch events")
+		return
 	}
-	if end > len(grouped) {
-		end = len(grouped)
-	}
-	paged := grouped[start:end]
+	defer resp.Body.Close()
 
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		c.String(http.StatusInternalServerError, "Invalid response from server")
+		return
+	}
+
+	// ============================
+	// Render HTML
+	// ============================
 	c.HTML(http.StatusOK, "event_list.gohtml", gin.H{
 		"ProjectID":   projectID,
 		"ProjectName": projectName,
-		"Page":        page,
-		"HasNext":     end < len(grouped),
-		"Events":      paged,
+		"Page":        result.Page,
+		"HasNext":     result.HasNext,
+		"Events":      result.Groups,
 	})
 }
