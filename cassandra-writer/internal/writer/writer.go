@@ -10,8 +10,7 @@ import (
 )
 
 type Config struct {
-	Hosts    []string
-	Keyspace string
+	Host string
 }
 
 type CassandraWriter struct {
@@ -19,100 +18,84 @@ type CassandraWriter struct {
 }
 
 func NewCassandraWriter(cfg Config) (*CassandraWriter, error) {
-	// First create a cluster to create keyspace
-	initCluster := gocql.NewCluster(cfg.Hosts...)
-	initCluster.Consistency = gocql.Quorum
-	initCluster.Timeout = time.Second * 5
+	slog.Info("Initializing Cassandra writer.")
 
-	initSession, err := initCluster.CreateSession()
+	cluster := gocql.NewCluster(cfg.Host)
+	cluster.Keyspace = "log_analyzer"
+	cluster.Consistency = gocql.Quorum
+	cluster.Timeout = time.Second * 5
+
+	// Attempt to create keyspace
+	setupSession, err := gocql.NewCluster(cfg.Host).CreateSession()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create init session: %v", err)
+		return nil, fmt.Errorf("failed to create setup session: %v", err)
 	}
-	defer initSession.Close()
+	defer setupSession.Close()
 
-	// Create keyspace if not exists
-	if err := createKeyspace(initSession, cfg.Keyspace); err != nil {
+	err = createKeyspace(setupSession)
+	if err != nil {
 		return nil, fmt.Errorf("failed to create keyspace: %v", err)
 	}
 
-	// Now create the real session with the keyspace
-	cluster := gocql.NewCluster(cfg.Hosts...)
-	cluster.Keyspace = cfg.Keyspace
-	cluster.Consistency = gocql.Quorum
-	cluster.Timeout = time.Second * 5
-	cluster.RetryPolicy = &gocql.SimpleRetryPolicy{NumRetries: 3}
-
+	// Create main session with keyspace
 	session, err := cluster.CreateSession()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create session: %v", err)
+		return nil, fmt.Errorf("failed to connect to cassandra: %v", err)
 	}
 
-	// Create table if not exists
+	// Create table
 	if err := createTable(session); err != nil {
 		session.Close()
 		return nil, fmt.Errorf("failed to create table: %v", err)
 	}
 
-	return &CassandraWriter{
-		session: session,
-	}, nil
+	slog.Info("Connection to Cassandra successful.")
+	return &CassandraWriter{session: session}, nil
 }
 
 func (w *CassandraWriter) WriteEvent(event *common.Event) error {
-	slog.Debug("writing event",
+	slog.Info("writing event",
 		"project_id", event.ProjectID,
 		"name", event.Name,
 		"timestamp", event.EventTimestamp)
 
-	// Create composite key: ProjectID_Name_Timestamp
-	key := fmt.Sprintf("%s_%s_%d",
-		event.ProjectID,
-		event.Name,
-		event.EventTimestamp.UnixNano(),
-	)
+	query := `INSERT INTO events (project_id, name, event_timestamp, log_data) VALUES (?, ?, ?, ?)`
 
-	query := `INSERT INTO events (key, project_id, name, timestamp, log_data) VALUES (?, ?, ?, ?, ?)`
-	err := w.session.Query(query,
-		key,
+	if err := w.session.Query(query,
 		event.ProjectID,
 		event.Name,
 		event.EventTimestamp,
 		event.Log,
-	).Exec()
-
-	if err != nil {
+	).Exec(); err != nil {
 		slog.Error("error writing event to cassandra",
 			"error", err,
-			"key", key)
+			"project_id", event.ProjectID,
+			"name", event.Name)
 		return err
 	}
 
-	slog.Debug("successfully wrote event", "key", key)
+	slog.Info("successfully wrote event", "project_id", event.ProjectID, "name", event.Name)
 	return nil
 }
 
-func createKeyspace(session *gocql.Session, keyspace string) error {
-	slog.Debug("creating keyspace if not exists", "keyspace", keyspace)
-	query := fmt.Sprintf(`
-		CREATE KEYSPACE IF NOT EXISTS %s
+func createKeyspace(session *gocql.Session) error {
+	return session.Query(`
+		CREATE KEYSPACE IF NOT EXISTS log_analyzer
 		WITH replication = {
 			'class': 'SimpleStrategy',
 			'replication_factor': 1
-		}`, keyspace)
-
-	return session.Query(query).Exec()
+		}`).Exec()
 }
 
 func createTable(session *gocql.Session) error {
-	slog.Debug("creating events table if not exists")
-	query := `
+	slog.Info("creating events table if not exists")
+	return session.Query(`
 		CREATE TABLE IF NOT EXISTS events (
-			key text PRIMARY KEY,
 			project_id text,
 			name text,
-			timestamp timestamp,
-			log_data map<text, text>
-		)`
-
-	return session.Query(query).Exec()
+			event_timestamp timestamp,
+			log_data map<text, text>,
+			PRIMARY KEY ((project_id, name), event_timestamp)
+		) WITH CLUSTERING ORDER BY (event_timestamp DESC)
+	`).Exec()
 }
