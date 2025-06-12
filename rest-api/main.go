@@ -2,20 +2,19 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/kakuta-404/log-analyzer/common"
+	"github.com/kakuta-404/log-analyzer/rest-api/internal/handlers"
 )
 
 func main() {
-	r := gin.Default()
+	router := gin.Default()
 
-	r.GET("/projects/:id/events", func(c *gin.Context) {
-		// TODO: Implement event listing
-		c.JSON(200, gin.H{"status": "not implemented"})
-	})
+	router.GET("/api/user", handlers.GetCurrentUser)
 
-	r.GET("/projects/:id/events/:name", func(c *gin.Context) {
+	router.GET("/projects/:id/events/:name", func(c *gin.Context) {
 		// TODO: Implement event details
 		c.JSON(200, gin.H{"status": "not implemented"})
 	})
 
-	r.Run(":8081")
+	router.Run(common.RESTAPIPort)
 }

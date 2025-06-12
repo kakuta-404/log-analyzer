@@ -1,39 +1,29 @@
 package middleware
 
 import (
-	"github.com/gin-gonic/gin"
+	"encoding/json"
 	"github.com/kakuta-404/log-analyzer/common"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 func FakeAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Simulated logged-in user
-		user := &common.User{
-			Username: "test_user",
-			Password: "test_pass",
-			Projects: []common.Project{
-				{
-					ID:             "p1",
-					ApiKey:         "api_key_1",
-					Name:           "Order System",
-					SearchableKeys: []string{"user_id", "role", "device"},
-					OtherKeys:      []string{"ip1", "browser1"}},
-				{
-					ID:             "p2",
-					ApiKey:         "api_key_2",
-					Name:           "Analytics Platform",
-					SearchableKeys: []string{"age", "height"},
-					OtherKeys:      []string{"ip1", "browser1"}},
-				{
-					ID:             "p3",
-					ApiKey:         "api_key_3",
-					Name:           "Marketing App",
-					SearchableKeys: []string{"tvMarketing", "radioMarketing"},
-					OtherKeys:      []string{"ip1", "browser1"}},
-			},
+		resp, err := http.Get(common.RESTAPIBaseURL + "/api/user")
+		if err != nil || resp.StatusCode != http.StatusOK {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Failed to retrieve user"})
+			return
 		}
-		// Store in context
-		c.Set("user", user)
+		defer resp.Body.Close()
+
+		var user common.User
+		if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid user response"})
+			return
+		}
+
+		c.Set("user", &user)
 		c.Next()
 	}
 }

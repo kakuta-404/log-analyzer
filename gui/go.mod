@@ -35,4 +35,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/kakuta-404/log-analyzer/common => ../common
+replace (
+	github.com/kakuta-404/log-analyzer/common => ../common
+	github.com/kakuta-404/log-analyzer/rest-api => ../rest-api
+)

@@ -6,6 +6,7 @@ import (
 	"GUI/internal/middleware"
 	"GUI/ui/templates"
 	"github.com/gin-gonic/gin"
+	"github.com/kakuta-404/log-analyzer/common"
 	"log"
 )
 
@@ -47,5 +48,5 @@ func main() {
 	router.GET("/search/detail", handlers.ShowEventDetail)
 
 	// Use port 8082
-	log.Fatal(router.Run(":8082"))
+	log.Fatal(router.Run(common.GUIBaseURL))
 }
