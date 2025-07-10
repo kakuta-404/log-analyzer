@@ -14,11 +14,12 @@ type Project struct {
 	SearchableKeys []string
 	OtherKeys      []string
 }
+
 type Event struct {
-	Name           string            `json:"name"`
-	ProjectID      string            `json:"project_id"`
-	EventTimestamp time.Time         `json:"event_timestamp"`
-	Log            map[string]string `json:"log"`
+	Name           string
+	ProjectID      string
+	EventTimestamp time.Time
+	Log            map[string]string
 }
 
 type Submission struct {
@@ -28,3 +29,4 @@ type Submission struct {
 	Timestamp time.Time         `json:"event_timestamp"`
 	PayLoad   map[string]string `json:"payload"`
 }
+
