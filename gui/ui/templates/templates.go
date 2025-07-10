@@ -1,9 +1,9 @@
 package templates
 
 import (
-	"GUI/internal/models"
 	"embed"
 	"fmt"
+	"github.com/kakuta-404/log-analyzer/common"
 	"html/template"
 	"net/http"
 	"strings"
@@ -80,7 +80,7 @@ func Instance() (*Templates, error) {
 
 func buildNavURL(data map[string]any, delta int) string {
 	projectID := data["ProjectID"].(string)
-	event := data["Event"].(models.Event)
+	event := data["Event"].(common.GuiEvent)
 	name := event.Name
 	index := data["Index"].(int) + delta
 	filters := data["Filters"].(map[string]string)

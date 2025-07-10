@@ -9,16 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/docker/go-connections/nat"
-	"github.com/gocql/gocql"
-	"github.com/kakuta-404/log-analyzer/cassandra-writer/internal/consumer"
-	"github.com/kakuta-404/log-analyzer/cassandra-writer/internal/writer"
+	"github.com/kakuta-404/log-analyzer/clickhouse-writer/internal/consumer"
+	"github.com/kakuta-404/log-analyzer/clickhouse-writer/internal/writer"
 	"github.com/kakuta-404/log-analyzer/common"
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	tcKafka "github.com/testcontainers/testcontainers-go/modules/kafka"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func init() {
@@ -30,40 +31,45 @@ func init() {
 	slog.SetDefault(logger)
 }
 
-func createTestSession(host string) (*gocql.Session, error) {
-	cluster := gocql.NewCluster(host)
-	cluster.Keyspace = "log_analyzer"
-	cluster.Consistency = gocql.Quorum
-	cluster.Timeout = time.Second * 5
-	return cluster.CreateSession()
+func createTestConnection(host string) (clickhouse.Conn, error) {
+	return clickhouse.Open(&clickhouse.Options{
+		Addr: []string{host},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+	})
 }
 
-func TestIntegrationCassandraWriter(t *testing.T) {
+func TestIntegrationClickHouseWriter(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
 
 	ctx := context.Background()
 
-	// Start Cassandra container
-	cassandraContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+	// Start ClickHouse container
+	clickhouseContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
-			Image:        "bitnami/cassandra:5.0.4",
-			ExposedPorts: []string{"9042/tcp"},
+			Image:        "bitnami/clickhouse:25.5.1",
+			ExposedPorts: []string{"9000/tcp"},
 			Env: map[string]string{
-				"CASSANDRA_PASSWORD_SEEDER": "no",
-				"CASSANDRA_AUTHENTICATOR":   "AllowAllAuthenticator",
-				"CASSANDRA_AUTHORIZER":      "AllowAllAuthorizer",
+				"ALLOW_EMPTY_PASSWORD": "yes",
 			},
+			WaitingFor: wait.ForAll(
+				wait.ForLog("Ready for connections"),
+				wait.ForListeningPort("9000/tcp"),
+			).WithStartupTimeout(60 * time.Second),
 		},
 		Started: true,
 	})
 	require.NoError(t, err)
-	defer cassandraContainer.Terminate(ctx)
-	time.Sleep(150 * time.Second)
-	cassandraHost, err := cassandraContainer.Host(ctx)
+	defer clickhouseContainer.Terminate(ctx)
+
+	clickhouseHost, err := clickhouseContainer.Host(ctx)
 	require.NoError(t, err)
-	cassandraPort, err := cassandraContainer.MappedPort(ctx, "9042")
+	clickhousePort, err := clickhouseContainer.MappedPort(ctx, "9000")
 	require.NoError(t, err)
 
 	// Start Kafka container
@@ -78,18 +84,18 @@ func TestIntegrationCassandraWriter(t *testing.T) {
 	kafkaPort, err := kafkaContainer.MappedPort(ctx, "9093")
 	require.NoError(t, err)
 
-	// Initialize Cassandra writer with retries
-	var cw *writer.CassandraWriter
+	// Initialize ClickHouse writer with retries
+	var cw *writer.ClickHouseWriter
 	for i := 0; i < 5; i++ {
-		cw, err = writer.NewCassandraWriter(writer.Config{
-			Host: cassandraHost + ":" + cassandraPort.Port(),
+		cw, err = writer.NewClickHouseWriter(writer.Config{
+			Host: clickhouseHost + ":" + clickhousePort.Port(),
 		})
 		if err == nil {
 			break
 		}
 		time.Sleep(2 * time.Second)
 	}
-	require.NoError(t, err, "Failed to connect to Cassandra after retries")
+	require.NoError(t, err, "Failed to connect to ClickHouse after retries")
 
 	createKafkaTopic(t, kafkaHost, kafkaPort)
 
@@ -147,44 +153,43 @@ func TestIntegrationCassandraWriter(t *testing.T) {
 	slog.Info("Test message produced to kafka.")
 
 	// Wait for message to be processed
-	time.Sleep(15 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Verify data with retries
-	slog.Info("Attempting to read test data from Cassandra.")
-	session, err := createTestSession(cassandraHost + ":" + cassandraPort.Port())
+	slog.Info("Attempting to read test data from ClickHouse.")
+	var count uint64
+	conn, err := createTestConnection(clickhouseHost + ":" + clickhousePort.Port())
 	require.NoError(t, err)
-	defer session.Close()
+	defer conn.Close()
 
-	var count int
 	for i := 0; i < 5; i++ {
-		err = session.Query(`SELECT COUNT(*) FROM events WHERE project_id = ? AND name = ?`,
-			testEvent.ProjectID, testEvent.Name).Scan(&count)
+		slog.Info("Querying ClickHouse to verify test.")
+		err = conn.QueryRow(ctx, "SELECT COUNT(*) FROM events").Scan(&count)
 		if err == nil && count == 1 {
 			break
 		}
+		slog.Error("Query executed.", slog.String("error", fmt.Sprintf("%v", err)), slog.Uint64("count", count))
 		time.Sleep(1 * time.Second)
 	}
-	assert.Equal(t, 1, count, "Expected one record in Cassandra")
+	assert.Equal(t, uint64(1), count, "Expected one record in ClickHouse")
 
 	// Verify event data
-	var (
-		name      string
-		projectID string
-		logData   map[string]string
-	)
+	var storedEvent struct {
+		Name      string
+		ProjectID string
+		Log       map[string]string
+	}
 
-	err = session.Query(`
+	err = conn.QueryRow(ctx, `
 		SELECT name, project_id, log_data 
 		FROM events 
-		WHERE project_id = ? AND name = ? 
-		LIMIT 1`,
-		testEvent.ProjectID, testEvent.Name,
-	).Scan(&name, &projectID, &logData)
+		LIMIT 1
+	`).Scan(&storedEvent.Name, &storedEvent.ProjectID, &storedEvent.Log)
 	require.NoError(t, err)
 
-	assert.Equal(t, testEvent.Name, name)
-	assert.Equal(t, testEvent.ProjectID, projectID)
-	assert.Equal(t, testEvent.Log, logData)
+	assert.Equal(t, testEvent.Name, storedEvent.Name)
+	assert.Equal(t, testEvent.ProjectID, storedEvent.ProjectID)
+	assert.Equal(t, testEvent.Log, storedEvent.Log)
 }
 
 // creating kafka topic and partitions beforehand will make consumer and producer work properly
