@@ -47,7 +47,7 @@ services:
       - cassandra_data:/var/lib/cassandra
 
   cockroachdb:
-    image: docker pull cockroachdb/cockroach:v24.3.14
+    image: cockroachdb/cockroach:v24.3.14
     ports:
       - "26257:26257"
       - "8082:8080"
@@ -57,38 +57,38 @@ services:
 
   log-generator:
     build:
-      context: ./log-generator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./log-generator/Dockerfile
     ports:
       - "8080:8080"
 
   log-drain:
     build:
-      context: ./log-drain
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./log-drain/Dockerfile
     depends_on:
       - kafka
 
   clickhouse-writer:
     build:
-      context: ./clickhouse-writer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./clickhouse-writer/Dockerfile
     depends_on:
       - kafka
       - clickhouse
 
   cassandra-writer:
     build:
-      context: ./cassandra-writer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./cassandra-writer/Dockerfile
     depends_on:
       - kafka
       - cassandra
 
   rest-api:
     build:
-      context: ./rest-api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./rest-api/Dockerfile
     ports:
       - "8081:8081"
     depends_on:
