@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -47,6 +48,12 @@ func SendToKafka(sub *common.Submission) error {
 }
 
 func main() {
+	// Initialize database connection
+	if err := GetInfo(); err != nil {
+		// For now just log the error but continue, since we're in development
+		fmt.Printf("Warning: Failed to initialize project info: %v\n", err)
+	}
+
 	r := gin.Default()
 
 	r.POST("/logs", func(c *gin.Context) {
@@ -57,11 +64,18 @@ func main() {
 			return
 		}
 
-		SendToKafka(&sub)
+		// Send to Kafka
+		if err := SendToKafka(&sub); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process log"})
+			return
+		}
 
+		c.JSON(http.StatusOK, gin.H{"status": "success"})
 	})
 
-	r.Run(":8080")
+	if err := r.Run(":8080"); err != nil {
+		panic(err)
+	}
 }
 
 var PorjectsInfo map[string]string

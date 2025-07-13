@@ -7,7 +7,6 @@ toolchain go1.24.2
 require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/kakuta-404/log-analyzer/common v0.0.0-00010101000000-000000000000
-	github.com/kakuta-404/log-analyzer/gui v0.0.0-00010101000000-000000000000
 )
 
 require (

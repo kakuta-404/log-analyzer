@@ -1,16 +1,17 @@
 package main
 
 import (
-	"net/http"
-	"database/sql"
-	"math/rand"
-	"strconv"
-	"github.com/lib/pq"
-	"github.com/kakuta-404/log-analyzer/common"
-	"time"
-	"encoding/json"
 	"bytes"
+	"database/sql"
+	"encoding/json"
+	"math/rand"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/kakuta-404/log-analyzer/common"
+	"github.com/lib/pq"
 )
 
 func MakeSubmission() common.Submission {
@@ -86,33 +87,38 @@ func ConnectToCockroachDB() error {
 }
 
 func sendLogs() {
-	
-    sub := MakeSubmission()
-    body, _ := json.Marshal(sub)
 
-    resp, err := http.Post("http://log-drain:8080/logs", "application/json", bytes.NewBuffer(body))
-    if err != nil {
-        return
-    }
-    resp.Body.Close()
+	sub := MakeSubmission()
+	body, _ := json.Marshal(sub)
 
+	resp, err := http.Post("http://log-drain:8080/logs", "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return
+	}
+	resp.Body.Close()
 
 }
 func main() {
-    go func() {
-        ticker := time.NewTicker(5 * time.Second)
-        defer ticker.Stop()
-        for range ticker.C {
-            sendLogs()
-        }
-    }()
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			sendLogs()
+		}
+	}()
 
-    r := gin.Default()
+	r := gin.Default()
 
-    r.POST("/send-now", func(c *gin.Context) {
-        sendLogs()
-        c.JSON(http.StatusOK, gin.H{"status": "log sent manually"})
-    })
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	})
 
+	r.POST("/send-now", func(c *gin.Context) {
+		sendLogs()
+		c.JSON(http.StatusOK, gin.H{"status": "log sent manually"})
+	})
 
+	if err := r.Run(":8080"); err != nil {
+		panic(err)
+	}
 }
