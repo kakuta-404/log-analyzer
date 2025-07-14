@@ -26,6 +26,34 @@ func waitForService(url string, maxRetries int) error {
 	return fmt.Errorf("service not ready after %d attempts", maxRetries)
 }
 
+func waitForServices(services map[string]string, maxRetries int) error {
+	for service, url := range services {
+		fmt.Printf("Waiting for %s...\n", service)
+		if err := waitForService(url, maxRetries); err != nil {
+			return fmt.Errorf("service %s not ready: %w", service, err)
+		}
+	}
+	return nil
+}
+
+func checkKafkaLiveness(maxRetries int) error {
+	for i := 0; i < maxRetries; i++ {
+		cmd := exec.Command("docker", "exec", "kafka",
+			"kafka-topics", "--create",
+			"--if-not-exists",
+			"--bootstrap-server", "kafka:9092",
+			"--replication-factor", "1",
+			"--partitions", "1",
+			"--topic", "test-liveness")
+
+		if err := cmd.Run(); err == nil {
+			return nil
+		}
+		time.Sleep(5 * time.Second)
+	}
+	return fmt.Errorf("kafka not ready after %d attempts", maxRetries)
+}
+
 func TestEndToEndLogFlow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -40,9 +68,21 @@ func TestEndToEndLogFlow(t *testing.T) {
 	}
 	defer exec.Command("docker", "compose", "down").Run()
 
+	fmt.Println("Checking Kafka connectivity...")
+	if err := checkKafkaLiveness(40); err != nil {
+		t.Fatal("Kafka not ready:", err)
+	}
+
 	// Wait for infrastructure services to be ready
 	fmt.Println("Waiting for infrastructure services...")
-	time.Sleep(60 * time.Second) // Increased wait time for Cassandra
+	infraServices := map[string]string{
+		"ClickHouse":  "http://localhost:8123/ping",
+		"CockroachDB": "http://localhost:8082/health",
+	}
+
+	if err := waitForServices(infraServices, 40); err != nil {
+		t.Fatal("Infrastructure services not ready:", err)
+	}
 
 	// Start application services
 	services := []string{"log-drain", "cassandra-writer", "clickhouse-writer", "log-generator"}
@@ -57,13 +97,13 @@ func TestEndToEndLogFlow(t *testing.T) {
 	}
 
 	// Wait for log generator to be ready
-	if err := waitForService("http://localhost:8080/health", 12); err != nil {
+	if err := waitForService("http://localhost:8084/health", 12); err != nil {
 		t.Fatal("Log generator service not ready:", err)
 	}
 
 	// Trigger log generation
 	fmt.Println("Triggering log generation...")
-	resp, err := http.Post("http://localhost:8080/send-now", "", nil)
+	resp, err := http.Post("http://localhost:8084/send-now", "", nil)
 	if err != nil {
 		t.Fatal("Failed to trigger log generation:", err)
 	}
@@ -102,7 +142,8 @@ func TestEndToEndLogFlow(t *testing.T) {
 
 	// Check data in Cassandra
 	fmt.Println("Verifying data in Cassandra...")
-	cluster := gocql.NewCluster("localhost:9042")
+	cluster := gocql.NewCluster("localhost")
+	cluster.Port = 9042
 	cluster.Keyspace = "log_analyzer"
 	cluster.Consistency = gocql.One
 	cluster.ConnectTimeout = time.Second * 10
