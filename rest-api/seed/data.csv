@@ -1,0 +1,9 @@
+project_id,event_name,timestamp,log
+p1,login,2025-07-15 14:03:00,"{""user_id"":""u1"",""role"":""admin"",""ip"":""192.168.1.11""}"
+p1,click,2025-07-15 13:51:00,"{""user_id"":""u2"",""role"":""user"",""page"":""/home""}"
+p1,signup,2025-07-15 13:45:00,"{""user_id"":""u3"",""ref"":""campaignA""}"
+p2,view_item,2025-07-15 13:40:00,"{""user_id"":""u4"",""item_id"":""1234"",""category"":""books""}"
+p2,checkout,2025-07-15 13:35:00,"{""user_id"":""u4"",""total"":""59.99"",""payment"":""card""}"
+p3,subscribe,2025-07-15 13:30:00,"{""user_id"":""u5"",""newsletter"":""weekly""}"
+p3,unsubscribe,2025-07-15 13:20:00,"{""user_id"":""u6"",""reason"":""too many emails""}"
+

@@ -2,8 +2,7 @@ package handlers
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/kakuta-404/log-analyzer/rest-api/internal/fake"
-	"github.com/kakuta-404/log-analyzer/rest-api/internal/logic"
+	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/cassandra"
 	"net/http"
 	"strconv"
 )
@@ -19,8 +18,15 @@ func GetGroupedEvents(c *gin.Context) {
 	}
 
 	// TODO: auth + get events
-	all := fake.ProjectEvents[projectID] // temp
-	grouped := logic.GroupEventsByName(all)
+	//all := fake.ProjectEvents[projectID] // temp
+	//grouped := logic.GroupEventsByName(all)
+
+	// Fetch grouped summaries from Cassandra
+	grouped, err := cassandra.GetEventGroupSummaries(projectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event summaries"})
+		return
+	}
 
 	start := (page - 1) * GroupsPerPage
 	end := start + GroupsPerPage

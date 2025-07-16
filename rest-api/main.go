@@ -1,29 +1,10 @@
-//package main
-//
-//import (
-//	"github.com/gin-gonic/gin"
-//	"github.com/kakuta-404/log-analyzer/common"
-//	"github.com/kakuta-404/log-analyzer/rest-api/internal/handlers"
-//)
-//
-//func main() {
-//	router := gin.Default()
-//
-//	router.GET("/api/user", handlers.GetCurrentUser)
-//
-//	router.GET("/projects/:id/events/:name", func(c *gin.Context) {
-//		// TODO: Implement event details
-//		c.JSON(200, gin.H{"status": "not implemented"})
-//	})
-//
-//	router.Run(common.RESTAPIPort)
-//}
-
 package main
 
 import (
 	"github.com/kakuta-404/log-analyzer/common"
 	"github.com/kakuta-404/log-analyzer/rest-api/internal/fake"
+	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/cassandra"
+	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/clickhouse"
 	"log"
 	"net/http"
 
@@ -32,8 +13,19 @@ import (
 )
 
 func main() {
+
+	//////TODO: replace with real Cassandra and ClickHouse connections
+	err := cassandra.Init("localhost:9042") // replace with container if needed
+	if err != nil {
+		log.Fatal("failed to connect to cassandra:", err)
+	}
+
+	err = clickhouse.Init("localhost:9000")
+	if err != nil {
+		log.Fatal("failed to connect to clickhouse:", err)
+	}
 	//TODO: replace with real data
-	fake.LoadFakeDataOnce()
+	//fake.LoadFakeDataOnce()
 
 	router := gin.Default()
 
