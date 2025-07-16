@@ -3,8 +3,7 @@ package handlers
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/kakuta-404/log-analyzer/common"
-	"github.com/kakuta-404/log-analyzer/rest-api/internal/fake"
-	"github.com/kakuta-404/log-analyzer/rest-api/internal/logic"
+	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/clickhouse"
 	"net/http"
 )
 
@@ -20,9 +19,15 @@ func SearchGroupedEvents(c *gin.Context) {
 	}
 
 	// Replace with real data source later
-	all := fake.ProjectEvents[projectID]
-	filtered := logic.FilterEvents(all, filters)
-	grouped := logic.GroupEventsByName(filtered)
+	//all := fake.ProjectEvents[projectID]
+	//filtered := logic.FilterEvents(all, filters)
+	//grouped := logic.GroupEventsByName(filtered)
+
+	grouped, err := clickhouse.GetFilteredGroupedEvents(projectID, filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch filtered events"})
+		return
+	}
 
 	c.JSON(http.StatusOK, common.GroupedEventsResponse{
 		Groups: grouped,
