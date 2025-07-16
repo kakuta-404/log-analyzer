@@ -1,27 +1,31 @@
+# ---------- Stage 1: Build ----------
 FROM golang:1.24.2-alpine AS builder
 
-ARG MODULE
-ENV GOPROXY=https://goproxy.cn?timeout=300s,direct
+ENV GOPROXY=https://goproxy.cn,direct
 ENV GO111MODULE=on
 
-WORKDIR /build
+# Set WORKDIR to /go/src/app so relative paths match
+WORKDIR /go/src/${MODULE}
 
-# First copy only go.mod and go.sum to download dependencies
-# This layer will be cached unless go.mod or go.sum changes
-COPY ${MODULE}/go.mod ${MODULE}/go.sum ${MODULE}/
-COPY common/go.mod common/go.sum common/
-WORKDIR /build/${MODULE}
+# Copy go.mod and go.sum
+COPY ${MODULE}/go.mod ${MODULE}/go.sum ./
+COPY common/go.mod ../common/go.mod
+
+# Download deps
 RUN go mod download
 
-# Now copy the rest of the source code
-COPY ${MODULE}/ ${MODULE}/
-COPY common/ common/
-WORKDIR /build/${MODULE}
-RUN go build -o app .
+# Copy the rest
+COPY ${MODULE}/ ./
+COPY common/ ../common/
 
+RUN go build -o /app .
+
+# ---------- Stage 2: Runtime ----------
 FROM alpine:latest
+
 WORKDIR /app
-COPY --from=builder /build/${MODULE}/app .
-# For GUI module, copy UI assets if they exist
-COPY --from=builder /build/${MODULE}/ui/ ./ui/ 2>/dev/null || true
+
+COPY --from=builder /app .
+
 CMD ["./app"]
+    
