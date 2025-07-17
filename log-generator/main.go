@@ -77,7 +77,7 @@ func ConnectToCockroachDB() error {
         searchable_keys STRING[]
     );
 `)
-	if err1 != nil  {
+	if err1 != nil {
 		log.Printf("could not created the desiarble table", err1)
 	}
 
@@ -88,7 +88,7 @@ func ConnectToCockroachDB() error {
     VALUES ($1, $2)
 `, "test-api-key", pq.StringArray{"lionl", "lionelmessi", "timestamp"})
 	if err1 != nil {
-		log.Printf("could not insert sample",err1)
+		log.Printf("could not insert sample", err1)
 	}
 	rows, err := db.Query("SELECT project_id, apikey, searchable_keys FROM projects")
 	if err != nil {
@@ -104,7 +104,7 @@ func ConnectToCockroachDB() error {
 
 		p.SearchAbleKey = []string(keys)
 		Names = append(Names, p)
-		log.Printf("test ",p.SearchAbleKey,p.APIKey,p.ProjectId)
+		log.Printf("test ", p.SearchAbleKey, p.APIKey, p.ProjectId)
 	}
 	return nil
 
@@ -126,7 +126,7 @@ func sendLogs() {
 func main() {
 	ConnectToCockroachDB()
 	go func() {
-		ticker := time.NewTicker(5 * time.Millisecond)
+		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
 			log.Println("ticker triggered, sending log .....")
