@@ -1,15 +1,17 @@
 package handlers
 
 import (
+	"log/slog"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/kakuta-404/log-analyzer/common"
 	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/clickhouse"
-	"net/http"
 )
 
 func SearchGroupedEvents(c *gin.Context) {
 	projectID := c.Param("id")
-	//TODO: (Optional) check project exists if needed
+	slog.Info("Searching grouped events", "projectID", projectID)
 
 	filters := map[string]string{}
 	for key, vals := range c.Request.URL.Query() {
@@ -17,18 +19,16 @@ func SearchGroupedEvents(c *gin.Context) {
 			filters[key] = vals[0]
 		}
 	}
-
-	// Replace with real data source later
-	//all := fake.ProjectEvents[projectID]
-	//filtered := logic.FilterEvents(all, filters)
-	//grouped := logic.GroupEventsByName(filtered)
+	slog.Info("Applied filters", "filters", filters)
 
 	grouped, err := clickhouse.GetFilteredGroupedEvents(projectID, filters)
 	if err != nil {
+		slog.Error("Failed to fetch filtered events", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch filtered events"})
 		return
 	}
 
+	slog.Info("Retrieved event groups", "count", len(grouped))
 	c.JSON(http.StatusOK, common.GroupedEventsResponse{
 		Groups: grouped,
 	})

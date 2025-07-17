@@ -1,39 +1,51 @@
 package main
 
 import (
-	"github.com/kakuta-404/log-analyzer/common"
-	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/cassandra"
-	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/clickhouse"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kakuta-404/log-analyzer/common"
 	"github.com/kakuta-404/log-analyzer/rest-api/internal/handlers"
+	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/cassandra"
+	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/clickhouse"
 )
 
+func init() {
+	// Configure slog with JSON handler
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level:     slog.LevelInfo,
+		AddSource: true,
+	})
+	slog.SetDefault(slog.New(handler))
+}
+
 func main() {
+	slog.Info("Starting log-analyzer REST API...")
 
-	//////TODO: replace with real Cassandra and ClickHouse connections
-	err := cassandra.Init("localhost:9042") // replace with container if needed
+	// Initialize Cassandra
+	slog.Info("Connecting to Cassandra...")
+	err := cassandra.Init("cassandra:9042")
 	if err != nil {
-		log.Fatal("failed to connect to cassandra:", err)
+		slog.Error("Failed to connect to Cassandra", "error", err)
+		os.Exit(1)
 	}
+	slog.Info("Successfully connected to Cassandra")
 
-	err = clickhouse.Init("localhost:9000")
+	// Initialize ClickHouse
+	slog.Info("Connecting to ClickHouse...")
+	err = clickhouse.Init("clickhouse:9000")
 	if err != nil {
-		log.Fatal("failed to connect to clickhouse:", err)
+		slog.Error("Failed to connect to ClickHouse", "error", err)
+		os.Exit(1)
 	}
-	//TODO: replace with real data
-	//fake.LoadFakeDataOnce()
+	slog.Info("Successfully connected to ClickHouse")
 
 	router := gin.Default()
 
-	// Trust only localhost (adjust if needed)
-	//if err := router.SetTrustedProxies(nil); err != nil {
-	//	log.Fatal("Failed to set trusted proxies:", err)
-	//}
-
 	router.GET("/ping", func(c *gin.Context) {
+		slog.Info("Health check ping received")
 		c.String(http.StatusOK, "pong")
 	})
 
@@ -45,8 +57,9 @@ func main() {
 	router.GET("/projects/:id/search", handlers.SearchGroupedEvents)
 	router.GET("/projects/:id/events/:name/detail", handlers.GetEventDetail)
 
-	log.Println("Starting REST API on", common.RESTAPIPort)
+	slog.Info("Starting REST API server", "port", common.RESTAPIPort)
 	if err := router.Run(common.RESTAPIPort); err != nil {
-		log.Fatal("Failed to start REST API:", err)
+		slog.Error("Server failed to start", "error", err)
+		os.Exit(1)
 	}
 }
