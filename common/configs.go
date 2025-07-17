@@ -1,11 +1,9 @@
 package common
 
-// a golobal adress var for connecting to cockroachdb for handel possible future errors
-
 var CockRoachdbAdress = "postgresql://username:password@hostname:26257/dbname?sslmode=require"
 
-var RESTAPIBaseURL = "http://localhost" + RESTAPIPort // ✅ For clients
+var RESTAPIBaseURL = "http://localhost" + RESTAPIPort
 
-var RESTAPIPort = ":8081" // ✅ For servers
+var RESTAPIPort = ":8081"
 
 var GUIBaseURL = ":8083"
