@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -61,12 +62,34 @@ type ProjectGe struct {
 
 // also get infoes for projects name and IDs
 func ConnectToCockroachDB() error {
-	connStr := "postgresql://<user>:<password>@<host>:<port>/<database>?sslmode=disable"
+	connStr := "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
+		log.Printf("could not connect to cockraochDb", err)
 		return err
 	}
+	log.Println("connected to the cockroachdb")
 	defer db.Close()
+	_, err1 := db.Exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+        project_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        apikey STRING NOT NULL,
+        searchable_keys STRING[]
+    );
+`)
+	if err1 != nil  {
+		log.Printf("could not created the desiarble table", err1)
+	}
+
+	log.Printf("sccessfuly created the table")
+
+	_, err1 = db.Exec(`
+    INSERT INTO projects (apikey, searchable_keys)
+    VALUES ($1, $2)
+`, "test-api-key", pq.StringArray{"lionl", "lionelmessi", "timestamp"})
+	if err1 != nil {
+		log.Printf("could not insert sample",err1)
+	}
 	rows, err := db.Query("SELECT project_id, apikey, searchable_keys FROM projects")
 	if err != nil {
 		return err
@@ -81,6 +104,7 @@ func ConnectToCockroachDB() error {
 
 		p.SearchAbleKey = []string(keys)
 		Names = append(Names, p)
+		log.Printf("test ",p.SearchAbleKey,p.APIKey,p.ProjectId)
 	}
 	return nil
 
@@ -95,30 +119,28 @@ func sendLogs() {
 	if err != nil {
 		return
 	}
+	log.Println("log sent successfully ++++++ ___ -dlfk")
 	resp.Body.Close()
 
 }
 func main() {
+	ConnectToCockroachDB()
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(5 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
+			log.Println("ticker triggered, sending log .....")
 			sendLogs()
 		}
 	}()
 
 	r := gin.Default()
 
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
-	})
-
 	r.POST("/send-now", func(c *gin.Context) {
 		sendLogs()
 		c.JSON(http.StatusOK, gin.H{"status": "log sent manually"})
 	})
+	log.Println("Starting HTTP server on :8080")
+	r.Run()
 
-	if err := r.Run(":8080"); err != nil {
-		panic(err)
-	}
 }
