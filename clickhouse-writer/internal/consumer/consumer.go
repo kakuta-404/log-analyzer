@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -19,11 +20,12 @@ type Config struct {
 }
 
 type KafkaConsumer struct {
+	conn   *driver.Conn
 	reader *kafka.Reader
 	writer *writer.ClickHouseWriter
 }
 
-func NewKafkaConsumer(cfg Config, writer *writer.ClickHouseWriter) (*KafkaConsumer, error) {
+func NewKafkaConsumer(cfg Config, writer *writer.ClickHouseWriter, clickhousConn *driver.Conn) (*KafkaConsumer, error) {
 	slog.Info("configuring kafka consumer",
 		"brokers", cfg.Brokers,
 		"topic", cfg.Topic,
@@ -58,6 +60,7 @@ func NewKafkaConsumer(cfg Config, writer *writer.ClickHouseWriter) (*KafkaConsum
 	return &KafkaConsumer{
 		reader: reader,
 		writer: writer,
+		conn:   clickhousConn,
 	}, nil
 }
 
@@ -98,6 +101,8 @@ func (c *KafkaConsumer) Start(ctx context.Context) error {
 				continue
 			}
 			slog.Info("message unmarshaled successfully", "event", event)
+
+			// check if projectID is new <- c.conn
 
 			slog.Info("attempting to write event")
 			if err := c.writer.WriteEvent(&event); err != nil {
