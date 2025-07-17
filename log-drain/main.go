@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -82,6 +81,8 @@ func SendToKafka(sub *common.Submission) error {
 }
 
 func main() {
+	log.Printf("Waiting 15 seconds to ensure Kafka is up")
+	time.Sleep(15 * time.Second)
 
 	GetInfo()
 	KafkaStarter()
