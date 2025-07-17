@@ -1,146 +1,76 @@
 package main
 
 import (
-	"bytes"
-	"database/sql"
-	"encoding/json"
-	"log"
-	"math/rand"
-	"net/http"
-	"strconv"
+	"context"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/kakuta-404/log-analyzer/common"
-	"github.com/lib/pq"
+	"github.com/kakuta-404/log-analyzer/log-generator/internal/config"
+	"github.com/kakuta-404/log-analyzer/log-generator/internal/generator"
+	"github.com/kakuta-404/log-analyzer/log-generator/internal/handler"
+	"github.com/kakuta-404/log-analyzer/log-generator/internal/projects"
 )
 
-func MakeSubmission() common.Submission {
-	var newEvent common.Submission
-	newEvent.ProjectID = strconv.Itoa(RandomiseInteger())
-	newEvent.APIKey = "lionel"
-	newEvent.Name = RandomiseString()
-	newEvent.Timestamp = time.Now()
-	newEvent.PayLoad = makePayload()
-	return newEvent
+func init() {
+	opts := &slog.HandlerOptions{
+		Level:     slog.LevelDebug,
+		AddSource: true,
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	slog.SetDefault(logger)
 }
 
-func makePayload() map[string]string {
-	payload := make(map[string]string)
-	length := RandomiseInteger()
-	for i := 0; i < length; i++ {
-		payload[RandomiseString()] = RandomiseString()
-	}
-	return payload
-}
-
-const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-func RandomiseInteger() int {
-	return rand.Intn(61)
-}
-
-func RandomiseString() string {
-	rand.Seed(time.Now().UnixNano())
-	randomInt := RandomiseInteger()
-	result := make([]byte, randomInt)
-	for i := range result {
-		result[i] = letters[RandomiseInteger()]
-	}
-	return string(result)
-}
-
-var Names []ProjectGe
-
-// hardcoding for now
-
-type ProjectGe struct {
-	ProjectId     string   `json:"project_id"`
-	APIKey        string   `json:"apikey"`
-	SearchAbleKey []string `json:"search_able_key"`
-}
-
-// also get infoes for projects name and IDs
-func ConnectToCockroachDB() error {
-	connStr := "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Printf("could not connect to cockraochDb", err)
-		return err
-	}
-	log.Println("connected to the cockroachdb")
-	defer db.Close()
-	_, err1 := db.Exec(`
-    CREATE TABLE IF NOT EXISTS projects (
-        project_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        apikey STRING NOT NULL,
-        searchable_keys STRING[]
-    );
-`)
-	if err1 != nil {
-		log.Printf("could not created the desiarble table", err1)
-	}
-
-	log.Printf("sccessfuly created the table")
-
-	_, err1 = db.Exec(`
-    INSERT INTO projects (apikey, searchable_keys)
-    VALUES ($1, $2)
-`, "test-api-key", pq.StringArray{"lionl", "lionelmessi", "timestamp"})
-	if err1 != nil {
-		log.Printf("could not insert sample", err1)
-	}
-	rows, err := db.Query("SELECT project_id, apikey, searchable_keys FROM projects")
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var p ProjectGe
-		var keys pq.StringArray
-
-		if err := rows.Scan(&p.ProjectId, &p.APIKey, &keys); err != nil {
-			return err
-		}
-
-		p.SearchAbleKey = []string(keys)
-		Names = append(Names, p)
-		log.Printf("test ", p.SearchAbleKey, p.APIKey, p.ProjectId)
-	}
-	return nil
-
-}
-
-func sendLogs() {
-
-	sub := MakeSubmission()
-	body, _ := json.Marshal(sub)
-
-	resp, err := http.Post("http://log-drain:8080/logs", "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return
-	}
-	log.Println("log sent successfully ++++++ ___ -dlfk")
-	resp.Body.Close()
-
-}
 func main() {
-	ConnectToCockroachDB()
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
+	}
+
+	projectSvc, err := projects.NewService(cfg.CockroachDB)
+	if err != nil {
+		slog.Error("failed to create project service", "error", err)
+		os.Exit(1)
+	}
+
+	gen := generator.New(struct{ LogDrainURL string }{LogDrainURL: cfg.Generator.LogDrainURL}, projectSvc)
+	h := handler.New(gen)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start periodic log generation
+	ticker := time.NewTicker(cfg.Generator.Interval)
+	defer ticker.Stop()
 	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			log.Println("ticker triggered, sending log .....")
-			sendLogs()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := gen.GenerateAndSend(); err != nil {
+					slog.Error("failed to generate/send log", "error", err)
+				}
+			}
 		}
 	}()
 
-	r := gin.Default()
+	// Start HTTP server
+	go h.Start(cfg.Server.Port)
 
-	r.POST("/send-now", func(c *gin.Context) {
-		sendLogs()
-		c.JSON(http.StatusOK, gin.H{"status": "log sent manually"})
-	})
-	log.Println("Starting HTTP server on :8080")
-	r.Run()
+	// Graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-sigChan
+	slog.Info("received shutdown signal", "signal", sig)
 
+	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer shutdownCancel()
+	if err := h.Shutdown(shutdownCtx); err != nil {
+		slog.Error("error during shutdown", "error", err)
+	}
+	slog.Info("service shutdown complete")
 }
