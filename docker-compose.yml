@@ -46,7 +46,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
+    environment:
+      ALLOW_EMPTY_PASSWORD: true
   cassandra:
     image: bitnami/cassandra:5.0.4
     ports:

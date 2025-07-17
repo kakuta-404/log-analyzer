@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/kakuta-404/log-analyzer/common"
-	"github.com/kakuta-404/log-analyzer/rest-api/internal/fake"
 	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/cassandra"
 	"github.com/kakuta-404/log-analyzer/rest-api/internal/storage/clickhouse"
 	"log"
