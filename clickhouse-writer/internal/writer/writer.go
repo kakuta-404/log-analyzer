@@ -2,6 +2,7 @@ package writer
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -68,6 +69,21 @@ func (w *ClickHouseWriter) WriteEvent(event *common.Event) error {
 
 	slog.Info("successfully wrote event", "project_id", event.ProjectID, "name", event.Name)
 	return nil
+}
+
+var db *sql.DB
+
+func connectToCockroachdb() {
+	connStr := "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Printf("could not connect to cockraochDb", err)
+		return err
+	}
+}
+
+func getSreachableKeys() ([]string, error) {
+
 }
 
 func createTable(conn clickhouse.Conn) error {
