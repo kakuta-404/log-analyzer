@@ -50,12 +50,8 @@ func (g *Generator) GenerateAndSend() error {
 }
 
 func randomString() string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
+	const letters = "abcdefghijklmnopqrstuvwxyz"
+	return string(letters[rand.Intn(len(letters))])
 }
 
 func randomPayload(keys []string) map[string]string {
@@ -63,6 +59,7 @@ func randomPayload(keys []string) map[string]string {
 	for _, k := range keys {
 		payload[k] = randomString()
 	}
+	payload["registered"] = map[bool]string{true: "true", false: "false"}[rand.Intn(2) == 1]
 	payload["extra"] = randomString()
 	return payload
 }

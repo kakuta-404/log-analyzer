@@ -1,0 +1,3 @@
+http://localhost:8081/projects/test-project/events
+http://localhost:8081/projects/test-project/search?registered=true
+http://localhost:8081/projects/test-project/events/d/detail?index=2&registered=true
