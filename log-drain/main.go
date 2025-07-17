@@ -2,194 +2,72 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
-	"log"
-	"net/http"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/kakuta-404/log-analyzer/common"
-	_ "github.com/lib/pq"
-	"github.com/segmentio/kafka-go"
+	"github.com/kakuta-404/log-analyzer/log-drain/internal/auth"
+	"github.com/kakuta-404/log-analyzer/log-drain/internal/config"
+	"github.com/kakuta-404/log-analyzer/log-drain/internal/handler"
+	"github.com/kakuta-404/log-analyzer/log-drain/internal/kafka"
 )
 
-var kafkaWriter *kafka.Writer
-
-func GenerateTopic(brokerAddr string, topic string, partitions int, replication int) {
-	conn, err := kafka.Dial("tcp", brokerAddr)
-	if err != nil {
-		log.Printf("cannot dial kafka broker", err)
+func init() {
+	opts := &slog.HandlerOptions{
+		Level:     slog.LevelDebug,
+		AddSource: true,
 	}
-	defer conn.Close()
-
-	// ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	// defer cancel()
-
-	err = conn.CreateTopics(kafka.TopicConfig{
-		Topic:             topic,
-		NumPartitions:     partitions,
-		ReplicationFactor: replication,
-	})
-
-	if err != nil {
-		if !isTopicexcist(err) {
-			log.Printf("topic exist", topic, err)
-		}
-
-	} else {
-		log.Printf("topic created sucessfully", topic)
-	}
-
-}
-func isTopicexcist(err error) bool {
-	return err != nil && (err.Error() == "kafka: topic already exists" || err.Error() == "Topic with this name already exists")
-}
-
-func KafkaStarter() {
-	brokerAddr := "kafka:9092"
-	topic := "logs"
-	GenerateTopic(brokerAddr, topic, 1, 1)
-	kafkaWriter = kafka.NewWriter(kafka.WriterConfig{
-		Brokers:      []string{brokerAddr},
-		Topic:        topic,
-		BatchSize:    1,
-		BatchTimeout: 200 * time.Millisecond,
-		Balancer:     &kafka.LeastBytes{},
-	})
-}
-
-func SendToKafka(sub *common.Submission) error {
-	// but it must check the bool value for authentication
-	_, event := ConvertSubmissionTOEvent(sub)
-
-	valueBytes, err := json.Marshal(event)
-	if err != nil {
-		panic(err)
-	}
-
-	err = kafkaWriter.WriteMessages(context.Background(), kafka.Message{
-		Key:   nil,
-		Value: valueBytes,
-	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	slog.SetDefault(logger)
 }
 
 func main() {
-	log.Printf("Waiting 15 seconds to ensure Kafka is up")
-	time.Sleep(15 * time.Second)
-
-	GetInfo()
-	KafkaStarter()
-	log.Println("lionel messi")
-	r := gin.Default()
-
-	r.POST("/logs", func(c *gin.Context) {
-		log.Println(" log called")
-		var sub common.Submission
-
-		if err := c.ShouldBindJSON(&sub); err != nil {
-			log.Println("error in bnding json")
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		log.Println("Parsed submission succefully")
-
-		// Call SendToKafka and handle the result
-		if err := SendToKafka(&sub); err != nil {
-			log.Printf("Error sending to Kafka: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "Failed to send log to Kafka",
-				"error":   err.Error(),
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"message": "Log submitted successfully"})
-	})
-
-	r.Run(":8080")
-}
-
-var PorjectsInfo map[string]string
-var database sql.DB
-
-func GetInfo() error {
-	PorjectsInfo := make(map[string]string)
-	database, err := sql.Open("postgres", "postgresql://root@cockroachdb:26257/defaultdb?sslmode=disable")
+	cfg, err := config.Load()
 	if err != nil {
-		log.Printf("could not connected to database", err)
-		return err
-	}
-	log.Printf("connected to database")
-	defer database.Close()
-
-	rows, err2 := database.Query("SELECT * FROM projects")
-
-	if err2 != nil {
-		log.Printf("could not select projectID", err2)
-		return err2
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
 
-	time.Sleep(20 * time.Second)
-
-	log.Printf("selected")
-
-	defer rows.Close()
-	if rows == nil {
-		log.Printf("rows are nil")
-	}
-	for rows.Next() {
-		var project_id, api_key string
-		if err3 := rows.Scan(&project_id, &api_key); err3 != nil {
-			return err3
-		}
-		log.Printf("rows", project_id, api_key)
-		PorjectsInfo[project_id] = api_key
-	}
-	return nil
-}
-
-func Authentication(key string, api_key string) (bool, error) {
-	value, exist := PorjectsInfo[key]
-	if !exist {
-		var project_id, api_key string
-		query := `SELECT projectid, name FROM projects WHERE project_id = $1 LIMIT 1`
-		err := database.QueryRow(query, value).Scan(&project_id, &api_key)
-
-		if err == sql.ErrNoRows {
-			return false, err
-		}
-		if err != nil {
-			return false, err
-		}
-
-		PorjectsInfo[key] = value
-	}
-	if value == api_key {
-		return true, nil
-	} else {
-		return false, nil
+	// Initialize services
+	authService, err := auth.NewService(cfg.CockroachDB)
+	if err != nil {
+		slog.Error("failed to create auth service", "error", err)
+		os.Exit(1)
 	}
 
-}
+	producer, err := kafka.NewProducer(cfg.Kafka)
+	if err != nil {
+		slog.Error("failed to create kafka producer", "error", err)
+		os.Exit(1)
+	}
 
-func ConvertSubmissionTOEvent(sub *common.Submission) (bool, common.Event) {
-	// check authentication
-	var event common.Event
-	// event.Name = "lionel"
-	// if auth, _ :=Authentication(sub.ProjectID, sub.APIKey); auth  == false{
-	// 	return false,event
-	// }
-	event.Log = sub.PayLoad
-	event.ProjectID = sub.ProjectID
-	event.Name = sub.Name
-	event.EventTimestamp = sub.Timestamp
-	return true, event
+	// Setup HTTP handler
+	h := handler.New(authService, producer)
+
+	// Setup graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go h.Start(cfg.Server.Port)
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	sig := <-sigChan
+	slog.Info("received shutdown signal", "signal", sig)
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer shutdownCancel()
+
+	if err := h.Shutdown(shutdownCtx); err != nil {
+		slog.Error("error during shutdown", "error", err)
+	}
+
+	if err := producer.Close(); err != nil {
+		slog.Error("error closing kafka producer", "error", err)
+	}
+
+	slog.Info("service shutdown complete")
 }

@@ -68,12 +68,16 @@ services:
       dockerfile: Dockerfile.template
       args:
         - MODULE=log-generator
+    pull_policy: build
     ports:
       - "8084:8080"
     environment:
       - KAFKA_BROKERS=kafka:9092
     networks:
       - log-analyzer-network
+    depends_on:
+      - log-drain
+      - cockroachdb
 
   log-drain:
     build:
@@ -81,6 +85,7 @@ services:
       dockerfile: Dockerfile.template
       args:
         - MODULE=log-drain
+    pull_policy: build
     environment:
       - KAFKA_BROKERS=kafka:9092
     depends_on:
@@ -94,6 +99,7 @@ services:
       dockerfile: Dockerfile.template
       args:
         - MODULE=clickhouse-writer
+    pull_policy: build
     environment:
       - KAFKA_BROKERS=kafka:9092
       - CLICKHOUSE_HOST=clickhouse
@@ -108,6 +114,7 @@ services:
       dockerfile: Dockerfile.template
       args:
         - MODULE=cassandra-writer
+    pull_policy: build
     environment:
       - KAFKA_BROKERS=kafka:9092
       - CASSANDRA_HOST=cassandra
@@ -122,6 +129,7 @@ services:
       dockerfile: Dockerfile.template
       args:
         - MODULE=rest-api
+    pull_policy: build
     ports:
       - "8081:8081"
     environment:
@@ -137,6 +145,7 @@ services:
       dockerfile: Dockerfile.template
       args:
         - MODULE=gui
+    pull_policy: build
     ports:
       - "8083:8083"
     environment:
