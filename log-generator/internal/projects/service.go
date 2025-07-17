@@ -48,7 +48,7 @@ func NewService(cfg struct{ DSN string }) (*Service, error) {
 
 	if count == 0 {
 		slog.Info("inserting test project data")
-		keys, _ := json.Marshal([]string{"level", "message", "service"})
+		keys, _ := json.Marshal([]string{"level", "message", "service", "registered"})
 		_, err = db.Exec(`
 			INSERT INTO projects (id, api_key, searchable_keys) 
 			VALUES ('test-project', 'test-key', $1)

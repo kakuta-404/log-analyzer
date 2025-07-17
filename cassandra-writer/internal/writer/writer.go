@@ -23,7 +23,7 @@ func NewCassandraWriter(cfg Config) (*CassandraWriter, error) {
 	cluster := gocql.NewCluster(cfg.Host)
 	cluster.Keyspace = "log_analyzer"
 	cluster.Consistency = gocql.Quorum
-	cluster.Timeout = time.Second * 5
+	cluster.Timeout = time.Second * 15
 
 	// Attempt to create keyspace
 	setupSession, err := gocql.NewCluster(cfg.Host).CreateSession()
