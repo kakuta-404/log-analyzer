@@ -3,12 +3,13 @@ package writer
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	chdriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/kakuta-404/log-analyzer/common"
 	"golang.org/x/exp/slog"
 )
@@ -24,23 +25,22 @@ type ClickHouseWriter struct {
 
 var ProjectIDs []int 
 
-func AddProjectID(projectID int) {
-    needForMake := false
-	for  i := 0 ; i < len(ProjectIDs) ; i++ {
-		if (projectID != ProjectIDs[i]) {
-			needForMake = true
-			ProjectIDs = append(ProjectIDs, projectID)
-			break
-		}
-	}
-
-	if needForMake {
-		
-	}
-
+func GetProjectsID() {
+	
 }
 
-var ClickhouseConnection driver.Conn
+func AddProjectID(projectID int) error {
+	for _, id := range ProjectIDs { 
+        if id == projectID {
+            return nil 
+        }
+    }
+   
+    ProjectIDs = append(ProjectIDs, projectID)
+    return createTable(ClickhouseConnection, projectID)
+}
+
+var ClickhouseConnection chdriver.Conn
 
 func NewClickHouseWriter(cfg Config) (*ClickHouseWriter, error) {
 	slog.Info("Initializing ClickHouse writer.")
@@ -54,6 +54,8 @@ func NewClickHouseWriter(cfg Config) (*ClickHouseWriter, error) {
 		Debug: true,
 	})
 	
+	ClickhouseConnection = conn
+
 	if err != nil {
 		slog.Error("failed to connect to clickhouse", "error", err)
 		return nil, fmt.Errorf("failed to connect to clickhouse: %v", err)
@@ -65,17 +67,20 @@ func NewClickHouseWriter(cfg Config) (*ClickHouseWriter, error) {
 }
 
 func (w *ClickHouseWriter) WriteEvent(event *common.Event) error {
+	pID, _ := strconv.Atoi(event.ProjectID)
+	AddProjectID(pID)
 	slog.Info("writing event",
 		"project_id", event.ProjectID,
 		"name", event.Name,
 		"timestamp", event.EventTimestamp)
 
-	query := `
-		INSERT INTO events (project_id, name, timestamp, log_data)
-		VALUES (?, ?, ?, ?)
-	`
-	err := w.conn.Exec(context.Background(), query,
-		event.ProjectID,
+	insertQuery := fmt.Sprintf(`INSERT INTO %s (name, timestamp, log_data) VALUES (?, ?, ?)`, event.ProjectID)
+
+	// query := `
+	// 	INSERT INTO events (project_id, name, timestamp, log_data)
+	// 	VALUES (?, ?, ?, ?)
+	// `
+	err := w.conn.Exec(context.Background(), insertQuery,
 		event.Name,
 		event.EventTimestamp,
 		event.Log,

@@ -2,7 +2,7 @@ package consumer
 
 import (
 	"context"
-	"database/sql/driver"
+
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -20,12 +20,11 @@ type Config struct {
 }
 
 type KafkaConsumer struct {
-	conn   *driver.Conn
 	reader *kafka.Reader
 	writer *writer.ClickHouseWriter
 }
 
-func NewKafkaConsumer(cfg Config, writer *writer.ClickHouseWriter, clickhousConn *driver.Conn) (*KafkaConsumer, error) {
+func NewKafkaConsumer(cfg Config, writer *writer.ClickHouseWriter) (*KafkaConsumer, error) {
 	slog.Info("configuring kafka consumer",
 		"brokers", cfg.Brokers,
 		"topic", cfg.Topic,
@@ -60,7 +59,7 @@ func NewKafkaConsumer(cfg Config, writer *writer.ClickHouseWriter, clickhousConn
 	return &KafkaConsumer{
 		reader: reader,
 		writer: writer,
-		conn:   clickhousConn,
+		
 	}, nil
 }
 
