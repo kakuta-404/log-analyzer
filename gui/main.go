@@ -16,6 +16,8 @@ func main() {
 
 	router := gin.Default()
 
+	router.SetTrustedProxies([]string{"127.0.0.1"})
+
 	htmlRender, err := templates.Instance()
 	if err != nil {
 		log.Fatal(err)
@@ -23,9 +25,10 @@ func main() {
 
 	router.HTMLRender = htmlRender
 
-	router.Static("/static", "/app/ui/static")
+	router.Static("/static", "./ui/static")
 
-	router.Use(middleware.Auth())
+	// TODO: replace fakeauth with real auth middleware
+	router.Use(middleware.FakeAuth())
 
 	router.GET("/", handlers.ShowHomePage)
 	router.GET("/login", handlers.ShowLoginPage)

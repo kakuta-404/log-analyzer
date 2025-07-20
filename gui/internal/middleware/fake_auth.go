@@ -2,14 +2,13 @@ package middleware
 
 import (
 	"encoding/json"
-	"net/http"
-
 	"github.com/kakuta-404/log-analyzer/common"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-func Auth() gin.HandlerFunc {
+func FakeAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		resp, err := http.Get(common.RESTAPIBaseURL + "/api/user")
 		if err != nil || resp.StatusCode != http.StatusOK {
