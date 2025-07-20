@@ -150,8 +150,6 @@ services:
       - "8083:8083"
     environment:
       - REST_API_HOST=rest-api
-    volumes:
-      - ./gui/ui/static:/app/ui/static
     networks:
       - log-analyzer-network
 
