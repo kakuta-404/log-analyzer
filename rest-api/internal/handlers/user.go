@@ -1,9 +1,10 @@
 package handlers
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/kakuta-404/log-analyzer/common"
-	"net/http"
 )
 
 func GetCurrentUser(c *gin.Context) {
@@ -13,18 +14,11 @@ func GetCurrentUser(c *gin.Context) {
 		Password: "test-password",
 		Projects: []common.Project{
 			{
-				ID:             "p1",
-				Name:           "Order System",
-				ApiKey:         "key1",
-				SearchableKeys: []string{"user_id", "role"},
+				ID:             "test-project",
+				Name:           "test-project",
+				ApiKey:         "test-key",
+				SearchableKeys: []string{"level", "message", "service", "registered"},
 				OtherKeys:      []string{"ip", "browser"},
-			},
-			{
-				ID:             "p2",
-				Name:           "Analytics Platform",
-				ApiKey:         "key2",
-				SearchableKeys: []string{"user_id"},
-				OtherKeys:      []string{"region"},
 			},
 		},
 	}
