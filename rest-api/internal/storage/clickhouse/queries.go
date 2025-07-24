@@ -105,10 +105,10 @@ func GetFilteredEventDetail(projectID, eventName string, filters map[string]stri
 		FROM events
 		%s
 		ORDER BY timestamp, project_id
-		LIMIT 3 OFFSET ?
+		LIMIT 1 OFFSET ?
 	`, where)
 
-	params = append(params, index-1)
+	params = append(params, index)
 
 	slog.Debug("Executing query",
 		"query", query,
@@ -124,8 +124,9 @@ func GetFilteredEventDetail(projectID, eventName string, filters map[string]stri
 	}
 	defer rows.Close()
 
-	var events []common.GuiEvent
-	for rows.Next() {
+	var event *common.GuiEvent
+
+	if rows.Next() {
 		var projectId string
 		var ts time.Time
 		var logData map[string]string
@@ -134,40 +135,31 @@ func GetFilteredEventDetail(projectID, eventName string, filters map[string]stri
 			return nil, false, false, err
 		}
 
-		events = append(events, common.GuiEvent{
+		event = &common.GuiEvent{
 			ID:             projectId,
 			Name:           eventName,
 			Timestamp:      ts.Format("2006-01-02 15:04"),
 			SearchableKeys: logData,
 			OtherKeys:      map[string]string{},
-		})
+		}
 	}
 
-	if index == 0 && len(events) == 0 {
+	if event == nil {
 		return nil, false, false, nil
 	}
 
-	var event *common.GuiEvent
-	var hasPrev, hasNext bool
+	countQuery := fmt.Sprintf(
+		`SELECT COUNT(*) FROM events %s`,
+		where)
 
-	if index == 0 {
-		if len(events) > 0 {
-			event = &events[0]
-			hasNext = len(events) > 1
-		}
-	} else {
-		if len(events) == 3 {
-			event = &events[1]
-			hasPrev = true
-			hasNext = true
-		} else if len(events) == 2 {
-			event = &events[1]
-			hasPrev = true
-		} else if len(events) == 1 {
-			event = &events[0]
-			hasPrev = true
-		}
+	var totalCount uint64
+	row := Conn.QueryRow(context.Background(), countQuery, params[:len(params)-1]...)
+	if err := row.Scan(&totalCount); err != nil {
+		return nil, false, false, err
 	}
+
+	hasPrev := index > 0
+	hasNext := index < int(totalCount)-1
 
 	slog.Info("Completed GetFilteredEventDetail",
 		"projectID", projectID,
