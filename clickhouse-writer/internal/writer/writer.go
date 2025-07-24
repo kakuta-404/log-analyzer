@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strconv"
+	
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	chdriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -23,13 +23,9 @@ type ClickHouseWriter struct {
 }
 
 
-var ProjectIDs []int 
+var ProjectIDs []string
 
-func GetProjectsID() {
-	
-}
-
-func AddProjectID(projectID int) error {
+func AddProjectID(projectID string) error {
 	for _, id := range ProjectIDs { 
         if id == projectID {
             return nil 
@@ -63,12 +59,23 @@ func NewClickHouseWriter(cfg Config) (*ClickHouseWriter, error) {
 	slog.Info("Connection to ClickHouse successful.")
 
 	slog.Info("Created table successfully.")
+
+	ConnectToCockroachdb()
+
+	if err := GetProjectsID(); err != nil {
+		slog.Error("getting projects ID faced error -- > " , err)
+	}
+
+	StartUP(conn)
+
+	printProject()
+	
 	return &ClickHouseWriter{conn: conn}, nil
 }
 
 func (w *ClickHouseWriter) WriteEvent(event *common.Event) error {
-	pID, _ := strconv.Atoi(event.ProjectID)
-	AddProjectID(pID)
+	
+	AddProjectID(event.ProjectID)
 	slog.Info("writing event",
 		"project_id", event.ProjectID,
 		"name", event.Name,
@@ -76,10 +83,6 @@ func (w *ClickHouseWriter) WriteEvent(event *common.Event) error {
 
 	insertQuery := fmt.Sprintf(`INSERT INTO %s (name, timestamp, log_data) VALUES (?, ?, ?)`, event.ProjectID)
 
-	// query := `
-	// 	INSERT INTO events (project_id, name, timestamp, log_data)
-	// 	VALUES (?, ?, ?, ?)
-	// `
 	err := w.conn.Exec(context.Background(), insertQuery,
 		event.Name,
 		event.EventTimestamp,
@@ -97,24 +100,24 @@ func (w *ClickHouseWriter) WriteEvent(event *common.Event) error {
 	return nil
 }
 
-var Db *sql.DB
+var database *sql.DB
 
 
 func ConnectToCockroachdb() {
 	var err error
-	connStr := "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
-	Db, err = sql.Open("postgres", connStr)
+	connStr := "postgresql://root@cockroachdb:26257/defaultdb?sslmode=disable"
+	database, err = sql.Open("postgres", connStr)
 	if err != nil {
-		log.Printf("can not connect to databse -- > " , err)
+		slog.Error("can not connect to databse -- > " , err)
 	} else {
-		log.Printf("connected to the database")
+		log.Printf("connected to the database to cockroach database")
 	}
 }
 
-func GetSreachableKeys(projectID int) ([]string, error) {
+func GetSearchableKeys(projectID string) ([]string, error) {
 	var searchable string
 
-    err := Db.QueryRow(
+    err := database.QueryRow(
         "SELECT searchable_keys FROM projects WHERE id = $1", projectID,
     ).Scan(&searchable)
 
@@ -134,13 +137,15 @@ func GetSreachableKeys(projectID int) ([]string, error) {
     return keys, nil
 }
 
-func createTable(conn clickhouse.Conn, projectID int) error {
-	searchableKeys, err := GetSreachableKeys(projectID)
+func createTable(conn clickhouse.Conn, projectID string) error {
+	if database == nil {
+		ConnectToCockroachdb()
+	}
+	searchableKeys, err := GetSearchableKeys(projectID)
 	if  err != nil {
 		return err
 	}
 	slog.Info("creating table for the projectID")
-	tableName := fmt.Sprintf("events_%d", projectID)
     CreationQuery := fmt.Sprintf(`
         CREATE TABLE IF NOT EXISTS %s (
             name String,
@@ -148,10 +153,10 @@ func createTable(conn clickhouse.Conn, projectID int) error {
             log_data Map(String, String)
         ) ENGINE = MergeTree()
         ORDER BY timestamp
-    `, tableName)
+    `, projectID)
 	
 	if err := conn.Exec(context.Background(), CreationQuery); err != nil {
-        return fmt.Errorf("failed to create table %s: %w", tableName, err)
+        return fmt.Errorf("failed to create table %s: %w", projectID, err)
     }
 
 	indexSize := len(searchableKeys)
@@ -161,25 +166,60 @@ func createTable(conn clickhouse.Conn, projectID int) error {
     alterQuery := fmt.Sprintf(`
         ALTER TABLE %s
         ADD INDEX IF NOT EXISTS searchable_keys_index (mapKeys(log_data)) TYPE set(%d) GRANULARITY 1
-    `, tableName, indexSize)
+    `, projectID, indexSize)
     
     if err := conn.Exec(context.Background(), alterQuery); err != nil {
-        return fmt.Errorf("failed to add index to table %s: %w", tableName, err)
+        return fmt.Errorf("failed to add index to table %s: %w", projectID, err)
     }
     
     bloomQuery := fmt.Sprintf(`
         ALTER TABLE %s
         ADD INDEX IF NOT EXISTS searchable_keys_bloom (mapKeys(log_data)) TYPE bloom_filter(0.01) GRANULARITY 1
-    `, tableName)
+    `, projectID)
     
     if err := conn.Exec(context.Background(), bloomQuery); err != nil {
-        return fmt.Errorf("failed to add bloom filter index to table %s: %w", tableName, err)
+        return fmt.Errorf("failed to add bloom filter index to table %s: %w", projectID, err)
     }
 
-    optimizeQuery := fmt.Sprintf(`OPTIMIZE TABLE %s FINAL`, tableName)
+    optimizeQuery := fmt.Sprintf(`OPTIMIZE TABLE %s FINAL`, projectID)
     if err := conn.Exec(context.Background(), optimizeQuery); err != nil {
-        slog.Warn("failed to optimize table, indexes may not apply immediately", "tableName", tableName, "error", err)
+        slog.Warn("failed to optimize table, indexes may not apply immediately", "tableName", projectID, "error", err)
     }
 
 	return nil
 }
+
+func GetProjectsID() (error) {
+	rows, err := database.Query("SELECT id FROM projects")
+	if err != nil {
+		return fmt.Errorf("query error: %w", err)
+	}
+	defer rows.Close()
+
+	
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("scan error: %w", err)
+		}
+		ProjectIDs = append(ProjectIDs, id)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("rows error: %w", err)
+	}
+
+	return nil
+}
+
+func StartUP(conn clickhouse.Conn) {
+	for i := 0; i < len(ProjectIDs); i++ {
+		createTable(conn,ProjectIDs[i])
+	}
+}
+
+func printProject() {
+	for i := 0; i < len(ProjectIDs); i++ {
+		log.Printf("table inside of cockroachdb ")
+	}
+}
+
