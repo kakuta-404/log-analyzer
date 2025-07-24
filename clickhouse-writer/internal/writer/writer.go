@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 	
-
+	"regexp"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	chdriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/kakuta-404/log-analyzer/common"
@@ -142,11 +142,11 @@ func createTable(conn clickhouse.Conn, projectID string) error {
 		ConnectToCockroachdb()
 	}
 	searchableKeys, err := GetSearchableKeys(projectID)
-	if  err != nil {
+	if err != nil {
 		return err
 	}
 	slog.Info("creating table for the projectID")
-    CreationQuery := fmt.Sprintf(`
+	CreationQuery := fmt.Sprintf(`
         CREATE TABLE IF NOT EXISTS %s (
             name String,
             timestamp DateTime,
@@ -154,37 +154,29 @@ func createTable(conn clickhouse.Conn, projectID string) error {
         ) ENGINE = MergeTree()
         ORDER BY timestamp
     `, projectID)
-	
+
 	if err := conn.Exec(context.Background(), CreationQuery); err != nil {
-        return fmt.Errorf("failed to create table %s: %w", projectID, err)
-    }
+		return fmt.Errorf("failed to create table %s: %w", projectID, err)
+	}
 
-	indexSize := len(searchableKeys)
-    if indexSize == 0 {
-        indexSize = 100 // Default fallback if no keys
-    }
-    alterQuery := fmt.Sprintf(`
-        ALTER TABLE %s
-        ADD INDEX IF NOT EXISTS searchable_keys_index (mapKeys(log_data)) TYPE set(%d) GRANULARITY 1
-    `, projectID, indexSize)
-    
-    if err := conn.Exec(context.Background(), alterQuery); err != nil {
-        return fmt.Errorf("failed to add index to table %s: %w", projectID, err)
-    }
-    
-    bloomQuery := fmt.Sprintf(`
-        ALTER TABLE %s
-        ADD INDEX IF NOT EXISTS searchable_keys_bloom (mapKeys(log_data)) TYPE bloom_filter(0.01) GRANULARITY 1
-    `, projectID)
-    
-    if err := conn.Exec(context.Background(), bloomQuery); err != nil {
-        return fmt.Errorf("failed to add bloom filter index to table %s: %w", projectID, err)
-    }
 
-    optimizeQuery := fmt.Sprintf(`OPTIMIZE TABLE %s FINAL`, projectID)
-    if err := conn.Exec(context.Background(), optimizeQuery); err != nil {
-        slog.Warn("failed to optimize table, indexes may not apply immediately", "tableName", projectID, "error", err)
-    }
+	keyRegexp := regexp.MustCompile(`[^\w\d_]`) 
+	for _, key := range searchableKeys {
+		safeKey := keyRegexp.ReplaceAllString(key, "_")
+		indexName := fmt.Sprintf("idx_%s", safeKey)
+		alterIdxQuery := fmt.Sprintf(`
+			ALTER TABLE %s
+			ADD INDEX IF NOT EXISTS %s (log_data['%s']) TYPE bloom_filter(0.01) GRANULARITY 1
+		`, projectID, indexName, key)
+		if err := conn.Exec(context.Background(), alterIdxQuery); err != nil {
+			return fmt.Errorf("failed to add bloom filter index for key %s to table %s: %w", key, projectID, err)
+		}
+	}
+
+	optimizeQuery := fmt.Sprintf(`OPTIMIZE TABLE %s FINAL`, projectID)
+	if err := conn.Exec(context.Background(), optimizeQuery); err != nil {
+		slog.Warn("failed to optimize table, indexes may not apply immediately", "tableName", projectID, "error", err)
+	}
 
 	return nil
 }
