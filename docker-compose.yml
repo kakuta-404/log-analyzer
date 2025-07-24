@@ -1,4 +1,4 @@
-version: '3.8'
+# mentioning the version will create a problem  due to the warnings log of docker-compose SO don't include it.
 
 services:
   kafka:
@@ -76,7 +76,7 @@ services:
     networks:
       - log-analyzer-network
     depends_on:
-      - log-drain
+      # - log-drain
       - cockroachdb
 
   log-drain:

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	"log/slog"
@@ -44,13 +45,17 @@ func (h *Handler) Shutdown(ctx context.Context) error {
 }
 
 func (h *Handler) handleLogs(c *gin.Context) {
+	slog.Info("Received request to /logs", "remote_addr", c.ClientIP()) 
+
 	var sub common.Submission
+	
 	if err := c.ShouldBindJSON(&sub); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
 	if err := h.auth.ValidateAPIKey(sub.ProjectID, sub.APIKey); err != nil {
+		slog.Error("Auth validation failed", "error", err, "project_id", sub.ProjectID)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication failed"})
 		return
 	}
@@ -62,7 +67,10 @@ func (h *Handler) handleLogs(c *gin.Context) {
 		Log:            sub.PayLoad,
 	}
 
+	log.Println("lionel messi")
+
 	if err := h.producer.SendEvent(c.Request.Context(), &event); err != nil {
+		slog.Error("Failed to send event to Kafka", "error", err, "event", event)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to process log"})
 		return
 	}

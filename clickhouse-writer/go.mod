@@ -8,6 +8,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.15.0
 	github.com/docker/go-connections v0.5.0
 	github.com/kakuta-404/log-analyzer/common v0.0.0
+	github.com/lib/pq v1.10.9
 	github.com/segmentio/kafka-go v0.4.27
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0

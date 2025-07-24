@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -24,6 +25,7 @@ func init() {
 }
 
 func main() {
+	log.Println("start") 
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
@@ -42,6 +44,8 @@ func main() {
 		slog.Error("failed to create kafka producer", "error", err)
 		os.Exit(1)
 	}
+
+	log.Println("kafka has been created")
 
 	// Setup HTTP handler
 	h := handler.New(authService, producer)
