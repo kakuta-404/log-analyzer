@@ -9,6 +9,7 @@ import (
 
 	"github.com/kakuta-404/log-analyzer/clickhouse-writer/internal/consumer"
 	"github.com/kakuta-404/log-analyzer/clickhouse-writer/internal/writer"
+	"github.com/kakuta-404/log-analyzer/common"
 )
 
 func init() {
@@ -38,7 +39,7 @@ func main() {
 	slog.Info("initializing kafka consumer...")
 	// Initialize Kafka consumer
 	kc, err := consumer.NewKafkaConsumer(consumer.Config{
-		Brokers: []string{"kafka:9092"},
+		Brokers: common.KafkaBrokers,
 		Topic:   "logs",
 		GroupID: "clickhouse-writer",
 	}, cw)
