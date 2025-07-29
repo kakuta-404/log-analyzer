@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
+	 _ "github.com/lib/pq"
 	"github.com/kakuta-404/log-analyzer/clickhouse-writer/internal/consumer"
 	"github.com/kakuta-404/log-analyzer/clickhouse-writer/internal/writer"
 	"github.com/kakuta-404/log-analyzer/common"
@@ -23,13 +23,15 @@ func init() {
 }
 
 func main() {
+	
 	slog.Info("starting clickhouse writer service")
-
+	
 	slog.Info("initializing clickhouse writer...")
 	// Initialize ClickHouse writer
 	cw, err := writer.NewClickHouseWriter(writer.Config{
 		Host: "clickhouse:9000",
 	})
+	
 	if err != nil {
 		slog.Error("failed to create clickhouse writer", "error", err)
 		os.Exit(1)
